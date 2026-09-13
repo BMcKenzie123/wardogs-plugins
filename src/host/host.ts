@@ -29,6 +29,7 @@ export class PluginHost {
   private lastSeen = new Map<string, Player>();
   private auditKeys = new Set<string>();
   private auditSeeded = false;
+  private stopHooks: Array<() => void | Promise<void>> = [];
   constructor(args: {
     rcon: RconClient;
     config: HostConfig;
@@ -91,6 +92,11 @@ export class PluginHost {
         every: (ms, fn, opts = {}) => this.every(name, ms, fn, opts),
         // null while the server is unreachable, so timed plugins don't act on a stale picture.
         snapshot: () => (this.up === false ? null : this.latest),
+        serverUp: () => this.up !== false,
+        lastPollAt: () => this.latest?.at ?? null,
+        onStop: (fn) => {
+          this.stopHooks.push(fn);
+        },
         hasRoute: (m, p) => RconClient.hasRoute(this.caps, m, p),
       };
       try {
@@ -111,6 +117,9 @@ export class PluginHost {
     fn: () => void | Promise<void>,
     opts: { immediate?: boolean },
   ): () => void {
+    // A zero or tiny interval would spin the event loop; clamp and say so.
+    const interval = Math.max(100, ms);
+    if (interval !== ms) this.logger.child(owner).warn(`timer interval ${ms} ms clamped to ${interval} ms`);
     let active = true;
     const run = async (): Promise<void> => {
       if (!active || this.stopped) return;
@@ -123,7 +132,7 @@ export class PluginHost {
       const t = setTimeout(() => {
         this.timers.delete(t);
         void run();
-      }, ms);
+      }, interval);
       this.timers.add(t);
     };
     if (opts.immediate) void run();
@@ -131,7 +140,7 @@ export class PluginHost {
       const t = setTimeout(() => {
         this.timers.delete(t);
         void run();
-      }, ms);
+      }, interval);
       this.timers.add(t);
     }
     return () => {
@@ -260,6 +269,13 @@ export class PluginHost {
       } catch (e) {
         this.logger.error(`teardown failed ${plugin.name}`, e);
       }
+    for (const hook of this.stopHooks.reverse())
+      try {
+        await hook();
+      } catch (e) {
+        this.logger.error('stop hook failed', e);
+      }
+    this.stopHooks = [];
     await Promise.all(this.stores.map((s) => s.flush()));
   }
 }

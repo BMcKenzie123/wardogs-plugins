@@ -1,6 +1,5 @@
 {
   "$comment": "Copy to plugins.json. Each key is a plugin name; `enabled` toggles it; other keys are that plugin's options. Replace discord.gg/your-invite everywhere.",
-
   "welcome": {
     "enabled": true,
     "delayMs": 6000,
@@ -8,7 +7,6 @@
     "returningMessage": "Welcome back, {name}!",
     "rememberPlayers": true
   },
-
   "motd": {
     "enabled": true,
     "intervalMinutes": 10,
@@ -19,7 +17,6 @@
       "Want a reserved slot? Ask in Discord."
     ]
   },
-
   "discord-relay": {
     "enabled": false,
     "webhookUrl": "",
@@ -34,7 +31,6 @@
     ],
     "scoreEveryMinutes": 5
   },
-
   "ping-guard": {
     "enabled": false,
     "maxPingMs": 250,
@@ -44,7 +40,6 @@
     "exemptSteamIds": [],
     "kickReason": "Ping too high for this server (limit {maxPingMs} ms)"
   },
-
   "team-balance": {
     "enabled": false,
     "threshold": 3,
@@ -52,17 +47,14 @@
     "cooldownSeconds": 120,
     "warnMessage": "Teams are uneven ({a} vs {b}). Please switch to balance."
   },
-
   "stats-logger": {
     "enabled": true,
     "snapshotEveryPolls": 15
   },
-
   "audit-tail": {
     "enabled": true,
     "toFile": true
   },
-
   "empty-server": {
     "enabled": false,
     "afterMinutes": 10,
@@ -70,23 +62,29 @@
     "experiences": ["Bakurani_KOTH_01"],
     "lighting": "DayClear"
   },
-
   "ban-sync": {
     "enabled": false,
     "source": "./data/shared-bans.json",
     "intervalMinutes": 15,
     "removeUnlisted": false
   },
-
   "lighting-clock": {
     "enabled": false,
     "schedule": [
-      { "from": "06:00", "lighting": "DayClear" },
-      { "from": "18:00", "lighting": "DayLateGray" },
-      { "from": "21:00", "lighting": "Night" }
+      {
+        "from": "06:00",
+        "lighting": "DayClear"
+      },
+      {
+        "from": "18:00",
+        "lighting": "DayLateGray"
+      },
+      {
+        "from": "21:00",
+        "lighting": "Night"
+      }
     ]
   },
-
   "recruit-pitch": {
     "enabled": true,
     "afterMinutes": 15,
@@ -94,7 +92,6 @@
     "repeatAfterDays": 7,
     "message": "Enjoying {server}, {name}? We are recruiting — join the Discord and play with the regulars: discord.gg/your-invite"
   },
-
   "regulars": {
     "enabled": true,
     "delayMs": 12000,
@@ -110,7 +107,6 @@
       }
     ]
   },
-
   "match-mvp": {
     "enabled": true,
     "top": 3,
@@ -118,7 +114,6 @@
     "broadcast": "Match MVPs on {map}: {list}",
     "mvpMessage": "MVP, {name}! {kills}K/{deaths}D. Players like you are who we recruit — say hi in Discord: discord.gg/your-invite"
   },
-
   "fill-server": {
     "enabled": false,
     "belowPlayers": 8,
@@ -129,7 +124,6 @@
     "quietHours": ["01:00", "09:00"],
     "broadcast": "Quiet in here — invite a friend, {free} slots free."
   },
-
   "event-announcer": {
     "enabled": false,
     "discord": true,
@@ -142,7 +136,217 @@
         "name": "Clan night",
         "message": "{name} starts {in}! Everyone on the server, teams pick at {when}."
       },
-      { "day": "*", "time": "19:00", "name": "Prime time", "message": "Prime time {in} — bring your squad." }
+      {
+        "day": "*",
+        "time": "19:00",
+        "name": "Prime time",
+        "message": "Prime time {in} — bring your squad."
+      }
     ]
+  },
+  "reserved-slot-reward": {
+    "enabled": false,
+    "visits": 10,
+    "message": "Thanks for coming back {visits} times, {name}! You now have a reserved slot on {server}."
+  },
+  "comeback": {
+    "enabled": false,
+    "awayDays": 14,
+    "delayMs": 8000,
+    "message": "Welcome back, {name}! It's been {days} days. Catch up with the regulars in Discord: discord.gg/your-invite"
+  },
+  "kill-streak": {
+    "enabled": false,
+    "thresholds": [5, 10, 20],
+    "message": "{name} is on a {kills}-kill streak!"
+  },
+  "first-timer": {
+    "enabled": false,
+    "message": "First time on {server}: welcome {name}! Say hi."
+  },
+  "playtime-ranks": {
+    "enabled": false,
+    "ranks": [
+      {
+        "hours": 1,
+        "title": "Regular"
+      },
+      {
+        "hours": 10,
+        "title": "Veteran"
+      },
+      {
+        "hours": 50,
+        "title": "Legend"
+      }
+    ],
+    "announce": "{name} just reached {title} ({hours} h on {server})!"
+  },
+  "discord-announce-bridge": {
+    "enabled": false,
+    "channelId": "",
+    "botToken": "",
+    "intervalSeconds": 60,
+    "prefix": "[Discord] ",
+    "ignoreBots": true,
+    "maxLength": 200,
+    "baseUrl": "https://discord.com/api/v10"
+  },
+  "prime-time": {
+    "enabled": false,
+    "atPlayers": 20,
+    "message": "{server} is popping: {players}/{max} online on {map}!",
+    "oncePerHours": 12,
+    "webhookUrl": ""
+  },
+  "name-filter": {
+    "enabled": false,
+    "patterns": ["(?i)\\bslur1\\b"],
+    "kickReason": "Name violates server rules",
+    "dmBeforeKick": "Your name breaks our rules; change it and rejoin."
+  },
+  "afk-kick": {
+    "enabled": false,
+    "afterMinutes": 10,
+    "onlyWhenAbove": 0.8,
+    "warnMinutesBefore": 2,
+    "kickReason": "AFK for {minutes} min",
+    "exemptReserved": true
+  },
+  "temp-bans": {
+    "enabled": false,
+    "checkSeconds": 60
+  },
+  "vac-check": {
+    "enabled": false,
+    "action": "flag",
+    "kickReason": "VAC/game-banned accounts are not allowed here",
+    "minGameBans": 1,
+    "webhookUrl": ""
+  },
+  "new-account-gate": {
+    "enabled": false,
+    "minAccountDays": 30,
+    "action": "flag",
+    "kickUnknown": false,
+    "kickReason": "Steam account too new for this server"
+  },
+  "admin-alerts": {
+    "enabled": false,
+    "events": ["kick", "ban", "unban", "config", "map"],
+    "ignorePeers": [],
+    "webhookUrl": ""
+  },
+  "rotation-scheduler": {
+    "enabled": false,
+    "schedules": [
+      {
+        "days": ["fri", "sat"],
+        "from": "19:00",
+        "to": "23:59",
+        "entries": [
+          {
+            "map": "Europe",
+            "experiences": ["Madrid_KOTH_01"],
+            "lighting": "DayLateGray"
+          },
+          {
+            "map": "Kavkazi",
+            "experiences": ["Bakurani_KOTH_01"],
+            "lighting": "Night"
+          }
+        ]
+      }
+    ],
+    "checkSeconds": 60
+  },
+  "population-maps": {
+    "enabled": false,
+    "tiers": [
+      {
+        "maxPlayers": 20,
+        "maps": ["Kavkazi"]
+      },
+      {
+        "maxPlayers": 999,
+        "maps": ["Europe"]
+      }
+    ],
+    "graceSeconds": 20
+  },
+  "stale-match": {
+    "enabled": false,
+    "maxMinutes": 90
+  },
+  "weather-randomizer": {
+    "enabled": false,
+    "lightings": ["DayClear", "DayLateGray"],
+    "weights": [],
+    "excludeCurrent": true
+  },
+  "score-tick-tuner": {
+    "enabled": false,
+    "table": [
+      {
+        "upToPlayers": 20,
+        "scoreTick": 30
+      },
+      {
+        "upToPlayers": 50,
+        "scoreTick": 24
+      },
+      {
+        "upToPlayers": 999,
+        "scoreTick": 18
+      }
+    ],
+    "cooldownSeconds": 120
+  },
+  "sponsor-rotator": {
+    "enabled": false,
+    "imageUrls": ["https://example.com/banner-1.png", "https://example.com/banner-2.png"],
+    "everyHours": 6
+  },
+  "config-backup": {
+    "enabled": false,
+    "checkMinutes": 10,
+    "keep": 50
+  },
+  "weekly-recap": {
+    "enabled": false,
+    "day": "sun",
+    "time": "18:00",
+    "webhookUrl": "",
+    "top": 5
+  },
+  "leaderboard": {
+    "enabled": false,
+    "everyMinutes": 30,
+    "top": 20,
+    "postEveryHours": 0,
+    "webhookUrl": ""
+  },
+  "steam-profiles": {
+    "enabled": false,
+    "refreshHours": 24
+  },
+  "prometheus-metrics": {
+    "enabled": false,
+    "path": "/metrics"
+  },
+  "web-dashboard": {
+    "enabled": false,
+    "path": "/"
+  },
+  "health-endpoint": {
+    "enabled": false,
+    "path": "/healthz",
+    "staleAfterPolls": 3
+  },
+  "downtime-alert": {
+    "enabled": false,
+    "afterMinutes": 5,
+    "webhookUrl": "",
+    "recoveredMessage": true
   }
 }

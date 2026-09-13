@@ -15,6 +15,10 @@ export interface PluginContext<O = Record<string, unknown>> {
   on<E extends EventName>(event: E, handler: (payload: Events[E]) => void | Promise<void>): void;
   every(ms: number, fn: () => void | Promise<void>, opts?: { immediate?: boolean }): () => void;
   snapshot(): Snapshot | null;
+  serverUp(): boolean;
+  lastPollAt(): number | null;
+  /** Register cleanup to run when the host stops (close listeners, clear timers). */
+  onStop(fn: () => void | Promise<void>): void;
   hasRoute(method: string, pathTemplate: string): boolean;
 }
 export interface Plugin<O = Record<string, unknown>> {

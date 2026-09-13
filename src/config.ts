@@ -16,7 +16,9 @@ export interface HostConfig {
   logLevel: 'debug' | 'info' | 'warn' | 'error';
   pluginsFile: string;
   discordWebhookUrl?: string;
+  discordBotToken?: string;
   steamApiKey?: string;
+  httpPort?: number;
 }
 export interface PluginsFile {
   [pluginName: string]: { enabled?: boolean; [option: string]: unknown };
@@ -59,7 +61,9 @@ export function loadHostConfig(env: NodeJS.ProcessEnv = process.env): HostConfig
     logLevel: level === 'debug' || level === 'warn' || level === 'error' ? level : 'info',
     pluginsFile: env.PLUGINS_FILE || './plugins.json',
     discordWebhookUrl: env.DISCORD_WEBHOOK_URL || undefined,
+    discordBotToken: env.DISCORD_BOT_TOKEN || undefined,
     steamApiKey: env.STEAM_API_KEY || undefined,
+    httpPort: env.HTTP_PORT ? num(env.HTTP_PORT, 0) || undefined : undefined,
   };
 }
 export function loadPluginsFile(path: string): PluginsFile {
