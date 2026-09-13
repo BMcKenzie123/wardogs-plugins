@@ -16,6 +16,8 @@ server every few seconds, turns the changes into events (`player.join`, `match.m
 plugins react by calling back into the API (DM a player, kick, broadcast, change lighting, …).
 
 API reference (unofficial): <https://wardogs.tech/rcon-reference> · OpenAPI: <https://wardogs.tech/openapi.json>
+Everything on that site, collected and cross-checked, is in [docs/WARDOGS-REFERENCE.md](docs/WARDOGS-REFERENCE.md):
+all 35 endpoints, every response field, every config key, known ids, and what the API cannot do.
 
 ## Quick start
 
