@@ -1,0 +1,11 @@
+services:
+  wardogs-plugins:
+    build: .
+    env_file: .env
+    environment:
+      DATA_DIR: /app/data
+      PLUGINS_FILE: /app/plugins.json
+    volumes:
+      - ./data:/app/data
+      - ./plugins.json:/app/plugins.json:ro
+    restart: unless-stopped

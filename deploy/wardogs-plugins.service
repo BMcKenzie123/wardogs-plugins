@@ -1,0 +1,24 @@
+[Unit]
+Description=WARDOGS RCON plugin host
+Documentation=https://wardogs.tech/rcon-reference
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=wardogs
+Group=wardogs
+WorkingDirectory=/opt/wardogs-plugins
+EnvironmentFile=/opt/wardogs-plugins/.env
+ExecStart=/usr/bin/env node dist/index.js
+Restart=always
+RestartSec=5
+# Hardening: the process only needs to read its checkout and write ./data.
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/wardogs-plugins/data
+
+[Install]
+WantedBy=multi-user.target

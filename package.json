@@ -1,0 +1,34 @@
+{
+  "name": "wardogs-plugins",
+  "version": "0.1.0",
+  "description": "Plugin host + CLI for a WARDOGS dedicated server (xREALM or any approved host) driven over the RCON HTTP API. Runs off-box on any machine you control.",
+  "type": "module",
+  "private": true,
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "bin": {
+    "wd": "./dist/cli.js"
+  },
+  "scripts": {
+    "dev": "node --env-file-if-exists=.env src/index.ts",
+    "wd": "node --env-file-if-exists=.env src/cli.ts",
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/index.js",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "node --test \"src/**/*.test.ts\"",
+    "check": "npm run typecheck && npm test",
+    "format": "prettier --write \"src/**/*.ts\" \"*.json\" \"*.md\"",
+    "format:check": "prettier --check \"src/**/*.ts\" \"*.json\" \"*.md\""
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "prettier": "^3.9.6",
+    "typescript": "^5.9.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/BMcKenzie123/wardogs-plugins.git"
+  },
+  "homepage": "https://github.com/BMcKenzie123/wardogs-plugins#readme"
+}

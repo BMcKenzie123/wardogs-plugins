@@ -1,0 +1,148 @@
+{
+  "$comment": "Copy to plugins.json. Each key is a plugin name; `enabled` toggles it; other keys are that plugin's options. Replace discord.gg/your-invite everywhere.",
+
+  "welcome": {
+    "enabled": true,
+    "delayMs": 6000,
+    "message": "Welcome to {server}, {name}! {players}/{max} online. Rules + Discord: discord.gg/your-invite",
+    "returningMessage": "Welcome back, {name}!",
+    "rememberPlayers": true
+  },
+
+  "motd": {
+    "enabled": true,
+    "intervalMinutes": 10,
+    "minPlayers": 1,
+    "messages": [
+      "Join our Discord: discord.gg/your-invite",
+      "No team-killing. Admins are watching the audit log.",
+      "Want a reserved slot? Ask in Discord."
+    ]
+  },
+
+  "discord-relay": {
+    "enabled": false,
+    "webhookUrl": "",
+    "events": [
+      "server.up",
+      "server.down",
+      "match.map",
+      "match.new",
+      "player.join",
+      "player.leave",
+      "audit.entry"
+    ],
+    "scoreEveryMinutes": 5
+  },
+
+  "ping-guard": {
+    "enabled": false,
+    "maxPingMs": 250,
+    "warnAfterPolls": 3,
+    "kickAfterPolls": 8,
+    "exemptReserved": true,
+    "exemptSteamIds": [],
+    "kickReason": "Ping too high for this server (limit {maxPingMs} ms)"
+  },
+
+  "team-balance": {
+    "enabled": false,
+    "threshold": 3,
+    "autoMove": false,
+    "cooldownSeconds": 120,
+    "warnMessage": "Teams are uneven ({a} vs {b}). Please switch to balance."
+  },
+
+  "stats-logger": {
+    "enabled": true,
+    "snapshotEveryPolls": 15
+  },
+
+  "audit-tail": {
+    "enabled": true,
+    "toFile": true
+  },
+
+  "empty-server": {
+    "enabled": false,
+    "afterMinutes": 10,
+    "map": "Kavkazi",
+    "experiences": ["Bakurani_KOTH_01"],
+    "lighting": "DayClear"
+  },
+
+  "ban-sync": {
+    "enabled": false,
+    "source": "./data/shared-bans.json",
+    "intervalMinutes": 15,
+    "removeUnlisted": false
+  },
+
+  "lighting-clock": {
+    "enabled": false,
+    "schedule": [
+      { "from": "06:00", "lighting": "DayClear" },
+      { "from": "18:00", "lighting": "DayLateGray" },
+      { "from": "21:00", "lighting": "Night" }
+    ]
+  },
+
+  "recruit-pitch": {
+    "enabled": true,
+    "afterMinutes": 15,
+    "minKills": 0,
+    "repeatAfterDays": 7,
+    "message": "Enjoying {server}, {name}? We are recruiting — join the Discord and play with the regulars: discord.gg/your-invite"
+  },
+
+  "regulars": {
+    "enabled": true,
+    "delayMs": 12000,
+    "leaderboardFile": true,
+    "tiers": [
+      {
+        "visits": 3,
+        "message": "Third visit, {name}! You are officially a regular. Come say hi: discord.gg/your-invite"
+      },
+      {
+        "visits": 10,
+        "message": "{name}, {visits} visits and {minutes} minutes here. Want a reserved slot? Ask in Discord."
+      }
+    ]
+  },
+
+  "match-mvp": {
+    "enabled": true,
+    "top": 3,
+    "minPlayers": 4,
+    "broadcast": "Match MVPs on {map}: {list}",
+    "mvpMessage": "MVP, {name}! {kills}K/{deaths}D. Players like you are who we recruit — say hi in Discord: discord.gg/your-invite"
+  },
+
+  "fill-server": {
+    "enabled": false,
+    "belowPlayers": 8,
+    "cooldownMinutes": 60,
+    "webhookUrl": "",
+    "message": "Only **{players}/{max}** on **{server}** right now (map: {map}). {free} slots free — come fill it!",
+    "connectInfo": "Search \"Your Server Name\" in the server browser",
+    "quietHours": ["01:00", "09:00"],
+    "broadcast": "Quiet in here — invite a friend, {free} slots free."
+  },
+
+  "event-announcer": {
+    "enabled": false,
+    "discord": true,
+    "webhookUrl": "",
+    "remindMinutesBefore": [60, 15, 0],
+    "events": [
+      {
+        "day": "fri",
+        "time": "20:00",
+        "name": "Clan night",
+        "message": "{name} starts {in}! Everyone on the server, teams pick at {when}."
+      },
+      { "day": "*", "time": "19:00", "name": "Prime time", "message": "Prime time {in} — bring your squad." }
+    ]
+  }
+}
