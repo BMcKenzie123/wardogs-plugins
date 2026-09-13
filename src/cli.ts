@@ -6,6 +6,7 @@
 import fs from 'node:fs/promises';
 import { loadEnv, loadHostConfig, loadRconConfig } from './config.ts';
 import { RconClient, RconConflictError, RconError } from './rcon/client.ts';
+import { sponsorUrlProblem } from './host/sponsor.ts';
 import type { FactionScore, MapSelection, Status } from './rcon/types.ts';
 
 export function parseDuration(value: string): number {
@@ -54,7 +55,7 @@ Config
   wd settings [--score-tick N] [--rotation on|off] [--mode ordered|random]
   wd config validate <file>
   wd config put <file> [--force] [--full-apply]        sends If-Match unless --force
-  wd sponsor <imageUrl>
+  wd sponsor <imageUrl> [--force]  1024x256 PNG/JPEG on catbox.moe, imgbb.com or postimg.cc
 
 Flags
   --json                            print raw JSON instead of tables
@@ -208,8 +209,12 @@ async function run(
       print(await c.mapAlternators(need(a1, 'map id')));
       return;
     case 'sponsor':
-      if (a1) print(await c.setSponsor(a1));
-      else {
+      if (a1) {
+        const problem = sponsorUrlProblem(a1);
+        if (problem && args.flags.force !== true)
+          throw new UsageError(`${problem} Use --force to send it anyway.`);
+        print(await c.setSponsor(a1));
+      } else {
         const s = await c.sponsor();
         print(s, () => s.imageUrl || '(none)');
       }

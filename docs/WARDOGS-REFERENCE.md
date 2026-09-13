@@ -194,18 +194,18 @@ it. `GET /v1/config` returns the document with a `revision`; `PUT /v1/config` re
 
 ### `[/Script/WDGame.WDGameSession]` — session
 
-| Key                         | Default | Applies      | Meaning                                                                |
-| --------------------------- | ------- | ------------ | ---------------------------------------------------------------------- |
-| `ServerName`                | —       | immediately  | Name in the server browser                                             |
-| `ServerPassword`            | (empty) | next restart | Join password; empty = open                                            |
-| `ServerMinPlayerCash`       | `0`     | next restart | Minimum cash to join; 0 = none                                         |
-| `ServerMaxPlayerCash`       | `0`     | next restart | Maximum cash to join; 0 = none                                         |
-| `ServerMinPlayerLevel`      | `0`     | next restart | Minimum level to join; 0 = none                                        |
-| `ServerMaxPlayerLevel`      | `0`     | next restart | Maximum level to join; 0 = none                                        |
-| `ServerImageURL`            | —       | pending      | Sponsor banner: 1024×256 PNG/JPEG on the server's image allow-list     |
-| `MaxReservedSlots`          | `20`    | immediately  | How many reserved slots exist                                          |
-| `+DefaultReservedPlayerIds` | —       | —            | One line per SteamID64; edited by the RCON reserve add/remove commands |
-| `+DefaultBannedPlayerIds`   | —       | —            | One line per SteamID64; edited by the RCON ban/unban commands          |
+| Key                         | Default | Applies      | Meaning                                                                                                                                                                                                                                                                                                                      |
+| --------------------------- | ------- | ------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ServerName`                | —       | immediately  | Name in the server browser                                                                                                                                                                                                                                                                                                   |
+| `ServerPassword`            | (empty) | next restart | Join password; empty = open                                                                                                                                                                                                                                                                                                  |
+| `ServerMinPlayerCash`       | `0`     | next restart | Minimum cash to join; 0 = none                                                                                                                                                                                                                                                                                               |
+| `ServerMaxPlayerCash`       | `0`     | next restart | Maximum cash to join; 0 = none                                                                                                                                                                                                                                                                                               |
+| `ServerMinPlayerLevel`      | `0`     | next restart | Minimum level to join; 0 = none                                                                                                                                                                                                                                                                                              |
+| `ServerMaxPlayerLevel`      | `0`     | next restart | Maximum level to join; 0 = none                                                                                                                                                                                                                                                                                              |
+| `ServerImageURL`            | —       | pending      | Sponsor banner: 1024×256 PNG/JPEG. **Host must be on the ImageURLWhitelist** — approved: catbox.moe, imgbb.com, postimg.cc (links come from their CDNs, e.g. `i.ibb.co`, `i.postimg.cc`, `files.catbox.moe`). Any other host is refused outright and nothing is downloaded. Inappropriate images get the server blacklisted. |
+| `MaxReservedSlots`          | `20`    | immediately  | How many reserved slots exist                                                                                                                                                                                                                                                                                                |
+| `+DefaultReservedPlayerIds` | —       | —            | One line per SteamID64; edited by the RCON reserve add/remove commands                                                                                                                                                                                                                                                       |
+| `+DefaultBannedPlayerIds`   | —       | —            | One line per SteamID64; edited by the RCON ban/unban commands                                                                                                                                                                                                                                                                |
 
 ### `[/Script/Engine.GameSession]` — player slots
 
@@ -249,6 +249,8 @@ Rotation entry format:
 
 `Experience` (singular) is one; `Experiences` (plural) joins several with `+`. `ZoneAlternator` is optional (omit for
 the map's authored default). `Lighting` is a lighting scenario.
+
+Live configs written by the panel pad the assignment (`ServerImageURL            = https://…`); the parser accepts spaces around `=`.
 
 Launch arguments mentioned: `-RCONPort=<port>`, `-GenerateRCONHash=<password>` (run as `WardogsServer -GenerateRCONHash=…`).
 

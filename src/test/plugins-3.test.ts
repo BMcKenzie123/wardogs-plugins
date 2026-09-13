@@ -183,7 +183,10 @@ test('score-tick-tuner: patches the tick for the population, clamped, with coold
 test('sponsor-rotator: cycles through the images', async () => {
   const s = await startMockServer();
   const { host } = makeHost(s, [sponsorRotator], {
-    'sponsor-rotator': { imageUrls: ['http://a/1.png', 'http://b/2.png'], everyHours: 0.00005 },
+    'sponsor-rotator': {
+      imageUrls: ['https://i.ibb.co/1.png', 'https://i.postimg.cc/2.png'],
+      everyHours: 0.00005,
+    },
   });
   try {
     await host.start();
@@ -192,7 +195,7 @@ test('sponsor-rotator: cycles through the images', async () => {
       requestsTo(s, 'PUT', '/v1/sponsor')
         .slice(0, 2)
         .map((r) => bodyOf<{ imageUrl: string }>(r).imageUrl),
-      ['http://a/1.png', 'http://b/2.png'],
+      ['https://i.ibb.co/1.png', 'https://i.postimg.cc/2.png'],
     );
   } finally {
     await host.stop();
