@@ -144,6 +144,15 @@
       }
     ]
   },
+  "seed-thanks": {
+    "enabled": true,
+    "mode": "dm",
+    "belowPlayers": 24,
+    "afterMinutes": 15,
+    "oncePerHours": 20,
+    "broadcastEveryMinutes": 30,
+    "message": "Thank you for seeding with us today, {name}! Invite your friends for better games faster, and join us on Discord: discord.gg/your-invite"
+  },
   "reserved-slot-reward": {
     "enabled": false,
     "visits": 10,

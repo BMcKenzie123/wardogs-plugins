@@ -57,23 +57,24 @@ against xREALM.
 Enable and configure plugins in `plugins.json` (see `plugins.example.json` for every option with its default).
 Each key is a plugin name; `"enabled": true` turns it on; the rest are that plugin's options.
 
-| Plugin            | What it does                                                                                          | Key options                                                                            | Needs route              |
-| ----------------- | ----------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- | ------------------------ |
-| `welcome`         | DMs a player a few seconds after they join; different text for returning players                      | `message`, `returningMessage`, `delayMs`, `rememberPlayers`                            | —                        |
-| `motd`            | Broadcasts rotating messages on an interval while players are online                                  | `messages[]`, `intervalMinutes`, `minPlayers`                                          | —                        |
-| `discord-relay`   | Posts up/down, map change, joins/leaves, audit entries and a periodic scoreboard to a Discord webhook | `webhookUrl` (or `DISCORD_WEBHOOK_URL`), `events[]`, `scoreEveryMinutes`               | —                        |
-| `ping-guard`      | Warns then kicks players whose ping stays above a limit; reserved slots exempt                        | `maxPingMs`, `warnAfterPolls`, `kickAfterPolls`, `exemptReserved`, `exemptSteamIds[]`  | —                        |
-| `team-balance`    | Warns when factions are uneven; optionally moves the newest player on the big team                    | `threshold`, `autoMove`, `cooldownSeconds`, `warnMessage`                              | `PATCH /v1/players/{id}` |
-| `stats-logger`    | Appends player snapshots and per-session summaries to `data/stats/YYYY-MM-DD.jsonl`                   | `snapshotEveryPolls`                                                                   | —                        |
-| `audit-tail`      | Logs each new admin-action audit entry; optionally to `data/audit.jsonl`                              | `toFile`                                                                               | —                        |
-| `empty-server`    | After N empty minutes, resets to a "home" map / lighting once                                         | `afterMinutes`, `map`, `experiences[]`, `lighting`                                     | —                        |
-| `ban-sync`        | Mirrors a shared ban list (file or URL) onto the server                                               | `source`, `intervalMinutes`, `removeUnlisted`                                          | —                        |
-| `lighting-clock`  | Sets lighting by wall-clock schedule (uses `TZ`)                                                      | `schedule[{from,lighting}]`                                                            | —                        |
-| `recruit-pitch`   | DMs a recruiting pitch once a player has put real time into a session                                 | `afterMinutes`, `minKills`, `repeatAfterDays`, `message`                               | —                        |
-| `regulars`        | Visit and play-time tracking, milestone DMs, `data/regulars.json` leaderboard                         | `tiers[{visits,message}]`, `delayMs`, `leaderboardFile`                                | —                        |
-| `match-mvp`       | End-of-match top-player shout-out and an MVP DM                                                       | `top`, `minPlayers`, `broadcast`, `mvpMessage`                                         | —                        |
-| `fill-server`     | Discord rally (and in-game nudge) when the server is under-populated                                  | `belowPlayers`, `cooldownMinutes`, `message`, `connectInfo`, `quietHours`, `broadcast` | —                        |
-| `event-announcer` | In-game and Discord reminders for recurring events                                                    | `events[{day,time,name,message}]`, `remindMinutesBefore[]`, `discord`                  | —                        |
+| Plugin            | What it does                                                                                          | Key options                                                                                | Needs route              |
+| ----------------- | ----------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ | ------------------------ |
+| `welcome`         | DMs a player a few seconds after they join; different text for returning players                      | `message`, `returningMessage`, `delayMs`, `rememberPlayers`                                | —                        |
+| `motd`            | Broadcasts rotating messages on an interval while players are online                                  | `messages[]`, `intervalMinutes`, `minPlayers`                                              | —                        |
+| `discord-relay`   | Posts up/down, map change, joins/leaves, audit entries and a periodic scoreboard to a Discord webhook | `webhookUrl` (or `DISCORD_WEBHOOK_URL`), `events[]`, `scoreEveryMinutes`                   | —                        |
+| `ping-guard`      | Warns then kicks players whose ping stays above a limit; reserved slots exempt                        | `maxPingMs`, `warnAfterPolls`, `kickAfterPolls`, `exemptReserved`, `exemptSteamIds[]`      | —                        |
+| `team-balance`    | Warns when factions are uneven; optionally moves the newest player on the big team                    | `threshold`, `autoMove`, `cooldownSeconds`, `warnMessage`                                  | `PATCH /v1/players/{id}` |
+| `stats-logger`    | Appends player snapshots and per-session summaries to `data/stats/YYYY-MM-DD.jsonl`                   | `snapshotEveryPolls`                                                                       | —                        |
+| `audit-tail`      | Logs each new admin-action audit entry; optionally to `data/audit.jsonl`                              | `toFile`                                                                                   | —                        |
+| `empty-server`    | After N empty minutes, resets to a "home" map / lighting once                                         | `afterMinutes`, `map`, `experiences[]`, `lighting`                                         | —                        |
+| `ban-sync`        | Mirrors a shared ban list (file or URL) onto the server                                               | `source`, `intervalMinutes`, `removeUnlisted`                                              | —                        |
+| `lighting-clock`  | Sets lighting by wall-clock schedule (uses `TZ`)                                                      | `schedule[{from,lighting}]`                                                                | —                        |
+| `seed-thanks`     | DM or broadcast a thank-you to players seeding an under-populated server                              | `belowPlayers`, `mode`, `afterMinutes`, `oncePerHours`, `broadcastEveryMinutes`, `message` | —                        |
+| `recruit-pitch`   | DMs a recruiting pitch once a player has put real time into a session                                 | `afterMinutes`, `minKills`, `repeatAfterDays`, `message`                                   | —                        |
+| `regulars`        | Visit and play-time tracking, milestone DMs, `data/regulars.json` leaderboard                         | `tiers[{visits,message}]`, `delayMs`, `leaderboardFile`                                    | —                        |
+| `match-mvp`       | End-of-match top-player shout-out and an MVP DM                                                       | `top`, `minPlayers`, `broadcast`, `mvpMessage`                                             | —                        |
+| `fill-server`     | Discord rally (and in-game nudge) when the server is under-populated                                  | `belowPlayers`, `cooldownMinutes`, `message`, `connectInfo`, `quietHours`, `broadcast`     | —                        |
+| `event-announcer` | In-game and Discord reminders for recurring events                                                    | `events[{day,time,name,message}]`, `remindMinutesBefore[]`, `discord`                      | —                        |
 
 ### More plugins: moderation, match, stats, ops
 
@@ -128,6 +129,7 @@ well-timed nudges and pulling your Discord onto the server, not `!join` commands
 | `match-mvp`       | At the end of each match, broadcast the top players and DM the MVP a personal invite                                                                 |
 | `fill-server`     | When population drops below N, rally your Discord with a join message and nudge current players to invite friends; cooldown and quiet hours built in |
 | `event-announcer` | Remind players in-game and on Discord about recurring events (clan night, training) at T-60, T-15 and start                                          |
+| `seed-thanks`     | Thank players who seed an under-populated server: a DM after N minutes of seeding, or a periodic broadcast while it fills                            | `belowPlayers`, `mode`, `afterMinutes`, `oncePerHours` |
 
 A new player's first evening then looks like: `welcome` at +6 s, `recruit-pitch` at +15 min, a `match-mvp` shout-out
 if they top the board, and `regulars` milestones on later visits. Every message is a template in `plugins.json`;
