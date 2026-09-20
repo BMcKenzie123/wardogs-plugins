@@ -67,7 +67,7 @@ test('admin-panel: ban with a length records the expiry; Cleanup lifts expired o
     const records = JSON.parse(fs.readFileSync(file, 'utf8')) as Array<Record<string, unknown>>;
     assert.equal(records.length, 1);
     assert.equal(records[0]!.steamId, 'a');
-    assert.equal(records[0]!.reason, 'cool off');
+    assert.equal(records[0]!.reason, 'cool off. Appeal at discord.gg/taw', 'the appeal note rides along');
     const by = String(records[0]!.by);
     assert.ok(by.length > 0, 'placed by the signed-in admin');
     const page = await httpRequest(`${base}/admin`, { headers: AUTH });
