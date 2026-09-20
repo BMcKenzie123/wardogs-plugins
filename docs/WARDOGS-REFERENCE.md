@@ -177,6 +177,43 @@ Server-defined; the catalog endpoints are the real list for your build. These ar
 
 ---
 
+## 5b. What a live server reported (xREALM-hosted, build 5.7.4, 2026-09-20)
+
+Fetched over RCON from a real community server; this is the ground truth the examples in this repo use.
+
+**Routes (29).** Everything in §3 **except**: `POST /v1/reserved-slots`, `DELETE /v1/reserved-slots/{steamId}`,
+`POST /v1/rotation/entries`, `DELETE /v1/rotation/entries/{i}`, `POST /v1/rotation/entries/{i}/move`,
+`POST /v1/rotation/save`, `PATCH /v1/settings`, `PUT /v1/sponsor`. Reserved slots, the rotation and the sponsor
+banner are therefore config-file-only on this build (`PUT /v1/config`). Two routes are present but undocumented:
+
+| Route               | Returns                                                                                                                         |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| `GET /v1/server-id` | `{ "serverId": "<uuid>" }`                                                                                                      |
+| `GET /v1/health`    | `{ "status": "ok", "uptimeSeconds", "connections": { "active" }, "gameThreadQueue": { "inFlight", "depth", "rejectedTotal" } }` |
+
+`config.writable` was `true`. Route parameter names differ from the docs (`{map}` and `{id}` instead of `{id}`/`{steamId}`); match on shape, not text.
+
+**Map ids vs. level names.** `GET /v1/status` `map` reports the _level_ (e.g. `Bakurani`), while the catalog, the
+rotation and `POST /v1/match/map` use the _map id_. Compare against the rotation's `now` entry when you need the id.
+
+| Map id         | Level name in status | Experiences                                              | Zone alternators                                                          |
+| -------------- | -------------------- | -------------------------------------------------------- | ------------------------------------------------------------------------- |
+| `Kavkazi`      | `Bakurani`           | `Bakurani_KOTH_01`, `KOTH_InfantryOnly`, `KOTH_Hardcore` | `ZoneAlternator.Bakurani.{Default,Farmland,Lumberyard}.Circle`            |
+| `Europe`       | `Ozeti`              | `Madrid_KOTH_01`, `KOTH_InfantryOnly`, `KOTH_Hardcore`   | `ZoneAlternator.Ozeti.{Default,Farmland,Church,River}.Circle`             |
+| `NorthAmerica` | `Zestafona`          | `Detroit_KOTH_01`, `KOTH_InfantryOnly`, `KOTH_Hardcore`  | `ZoneAlternator.Zestafona.{Default,SmallFactory,WaterTreatment,…}.Circle` |
+
+**Lighting ids (8):** `DayStartClear`, `DayEarlyClear`, `DayEarlyFog`, `DayClear`, `DayLateClear`, `DayLateGray`,
+`DayLateGrayFog`, `DayEndClear`. There is no night preset on this build.
+
+**Catalog shapes:** `GET /v1/catalog/maps` → `{ maps: [{ id, displayName }], count }`; lightings and experiences the
+same with `lightings` / `experiences`; `/v1/catalog/maps/{id}/experiences` → `{ map, experiences: string[], count }`;
+`/v1/catalog/maps/{id}/alternators` → `{ map, alternators: [{ index, tag, displayName }], count }`.
+
+**Factions and colours:** Lonestar `#4CB1EF`, Valkyra `#FA503E`, Manticore `#1DD65C`. **Slots:** 100.
+**Transport:** the host maps the game's RCON out on `<ip>:<port>` as **plain HTTP** (see §2).
+
+---
+
 ## 6. ServerSettings.ini — every honored section and key
 
 Read once at server startup. Only whitelisted sections/keys are honored; everything else is stripped. Omitted or

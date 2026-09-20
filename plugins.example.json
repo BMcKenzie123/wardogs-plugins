@@ -60,7 +60,7 @@
     "afterMinutes": 10,
     "map": "Kavkazi",
     "experiences": ["Bakurani_KOTH_01"],
-    "lighting": "DayClear"
+    "lighting": "DayStartClear"
   },
   "ban-sync": {
     "enabled": false,
@@ -73,6 +73,10 @@
     "schedule": [
       {
         "from": "06:00",
+        "lighting": "DayStartClear"
+      },
+      {
+        "from": "12:00",
         "lighting": "DayClear"
       },
       {
@@ -80,8 +84,8 @@
         "lighting": "DayLateGray"
       },
       {
-        "from": "21:00",
-        "lighting": "Night"
+        "from": "22:00",
+        "lighting": "DayEndClear"
       }
     ]
   },
@@ -262,7 +266,12 @@
           {
             "map": "Kavkazi",
             "experiences": ["Bakurani_KOTH_01"],
-            "lighting": "Night"
+            "lighting": "DayEndClear"
+          },
+          {
+            "map": "NorthAmerica",
+            "experiences": ["Detroit_KOTH_01"],
+            "lighting": "DayClear"
           }
         ]
       }
@@ -273,12 +282,12 @@
     "enabled": false,
     "tiers": [
       {
-        "maxPlayers": 20,
+        "maxPlayers": 30,
         "maps": ["Kavkazi"]
       },
       {
         "maxPlayers": 999,
-        "maps": ["Europe"]
+        "maps": ["Europe", "NorthAmerica"]
       }
     ],
     "graceSeconds": 20
@@ -289,7 +298,7 @@
   },
   "weather-randomizer": {
     "enabled": false,
-    "lightings": ["DayClear", "DayLateGray"],
+    "lightings": ["DayEarlyFog", "DayClear", "DayLateGray", "DayLateGrayFog", "DayEndClear"],
     "weights": [],
     "excludeCurrent": true
   },

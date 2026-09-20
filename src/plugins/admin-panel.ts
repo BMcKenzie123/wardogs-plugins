@@ -135,6 +135,9 @@ export default definePlugin<Options>({
       const snap = ctx.snapshot();
       const status = snap?.status;
       const canFaction = ctx.hasRoute('PATCH', '/v1/players/{id}');
+      const canReserve = ctx.hasRoute('POST', '/v1/reserved-slots');
+      const canUnreserve = ctx.hasRoute('DELETE', '/v1/reserved-slots/{id}');
+      const canSponsor = ctx.hasRoute('PUT', '/v1/sponsor');
       const msg = new URL(req.url ?? '/', 'http://x').searchParams.get('msg');
       const hidden = `<input type="hidden" name="_csrf" value="${csrf}">`;
       const form = (inner: string, cls = 'card'): string =>
@@ -179,7 +182,7 @@ export default definePlugin<Options>({
             ? `<table><tbody>${s.value.reservedSlots
                 .map(
                   (id) =>
-                    `<tr><td>${esc(id)}</td><td>${form(`<input type="hidden" name="steamId" value="${esc(id)}"><button class="soft" name="action" value="unreserve">Remove</button>`, 'inline')}</td></tr>`,
+                    `<tr><td>${esc(id)}</td><td>${canUnreserve ? form(`<input type="hidden" name="steamId" value="${esc(id)}"><button class="soft" name="action" value="unreserve">Remove</button>`, 'inline') : ''}</td></tr>`,
                 )
                 .join('')}</tbody></table>`
             : '<p class="muted">no reserved slots</p>';
@@ -236,8 +239,8 @@ ${form(`<b>Change map</b><input type="text" name="map" list="maps" placeholder="
 ${form(`<b>Lighting</b><input type="text" name="lighting" list="lightings" placeholder="preset" required><button name="action" value="lighting">Set</button>${datalist('lightings', lightings)}`)}
 ${form(`<b>Match</b><button class="soft" name="action" value="restart">Restart</button><button class="warn" name="action" value="end" onclick="return confirm('End the current match?')">End match</button>`)}
 ${form(`<b>Ban by SteamID</b><input type="text" name="steamId" placeholder="7656119…" required><input type="text" name="text" placeholder="reason"><button class="warn" name="action" value="ban">Ban</button>`)}
-${form(`<b>Reserved slot</b><input type="text" name="steamId" placeholder="7656119…" required><button name="action" value="reserve">Add</button>`)}
-${form(`<b>Sponsor banner</b><input type="text" name="imageUrl" placeholder="https://i.ibb.co/…/banner.png (1024×256)" style="flex:1"><button name="action" value="sponsor">Set</button>`)}
+${canReserve ? form(`<b>Reserved slot</b><input type="text" name="steamId" placeholder="7656119…" required><button name="action" value="reserve">Add</button>`) : ''}
+${canSponsor ? form(`<b>Sponsor banner</b><input type="text" name="imageUrl" placeholder="https://i.ibb.co/…/banner.png (1024×256)" style="flex:1"><button name="action" value="sponsor">Set</button>`) : ''}
 </div>
 <h2>Automation</h2> <span class="muted">${enabledCount} of ${ctx.plugins().length} plugins running · toggles take effect immediately and are saved to ${esc(ctx.host.pluginsFile)}</span>
 <table><thead><tr><th>Plugin</th><th>State</th><th>What it does</th><th></th></tr></thead><tbody>${pluginRows}</tbody></table>
@@ -286,9 +289,13 @@ ${form(`<b>Sponsor banner</b><input type="text" name="imageUrl" placeholder="htt
           return `Moved${who} to ${faction}.`;
         }
         case 'reserve':
+          if (!ctx.hasRoute('POST', '/v1/reserved-slots'))
+            return 'This server build does not expose reserved-slot changes over RCON.';
           await ctx.rcon.addReservedSlot(steamId);
           return `Reserved slot added for ${steamId}.`;
         case 'unreserve':
+          if (!ctx.hasRoute('DELETE', '/v1/reserved-slots/{id}'))
+            return 'This server build does not expose reserved-slot changes over RCON.';
           await ctx.rcon.removeReservedSlot(steamId);
           return `Reserved slot removed for ${steamId}.`;
         case 'map': {
@@ -318,6 +325,8 @@ ${form(`<b>Sponsor banner</b><input type="text" name="imageUrl" placeholder="htt
           return 'Match restarted.';
         case 'sponsor': {
           const imageUrl = (fields.get('imageUrl') ?? '').trim();
+          if (!ctx.hasRoute('PUT', '/v1/sponsor'))
+            return 'This server build does not expose the sponsor banner over RCON; set ServerImageURL in the config instead.';
           const problem = sponsorUrlProblem(imageUrl);
           if (problem) return problem;
           await ctx.rcon.setSponsor(imageUrl);

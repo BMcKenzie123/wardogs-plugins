@@ -49,6 +49,11 @@ export function activeSchedule(schedules: RotationSchedule[], now: Date): number
 export default definePlugin<Options>({
   name: 'rotation-scheduler',
   description: 'Replaces the map rotation by weekday and time window',
+  requires: [
+    ['POST', '/v1/rotation/entries'],
+    ['DELETE', '/v1/rotation/entries/{i}'],
+    ['POST', '/v1/rotation/save'],
+  ],
   defaults: { schedules: [], checkSeconds: 60 },
   setup(ctx) {
     const schedules = Array.isArray(ctx.options.schedules) ? ctx.options.schedules : [];

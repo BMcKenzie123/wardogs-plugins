@@ -10,6 +10,7 @@ interface Options {
 /** Tunes score speed as population changes. */ export default definePlugin<Options>({
   name: 'score-tick-tuner',
   description: 'Adjusts score tick to player population',
+  requires: [['PATCH', '/v1/settings']],
   defaults: {
     table: [
       { upToPlayers: 20, scoreTick: 30 },

@@ -11,6 +11,7 @@ interface Options {
 export default definePlugin<Options>({
   name: 'sponsor-rotator',
   description: 'Cycles sponsor banner images',
+  requires: [['PUT', '/v1/sponsor']],
   defaults: { imageUrls: [], everyHours: 6 },
   setup(ctx) {
     const urls = (Array.isArray(ctx.options.imageUrls) ? ctx.options.imageUrls : []).filter((url) => {

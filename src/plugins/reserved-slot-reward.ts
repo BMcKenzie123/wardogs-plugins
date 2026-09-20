@@ -8,6 +8,7 @@ interface Options {
 export default definePlugin<Options>({
   name: 'reserved-slot-reward',
   description: 'Grants reserved slots after repeat visits',
+  requires: [['POST', '/v1/reserved-slots']],
   defaults: { visits: 10, message: 'Thanks for visiting, {name}! You have earned a reserved slot.' },
   setup(ctx) {
     ctx.on('player.join', async ({ player, snapshot }) => {
