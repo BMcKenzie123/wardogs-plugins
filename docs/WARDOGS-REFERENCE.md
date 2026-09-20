@@ -46,6 +46,7 @@ Sources: `/rcon-reference` (all ten sections), `/openapi.json`, `/ServerSettings
 - **Errors:** non-2xx with body `{ "error": { "code": string, "message": string } }`. `PUT /v1/config` returns **412** with a `ConfigResult` body when the `If-Match` revision is stale.
 - **Feature detection:** `GET /v1/capabilities` → `{ routes: string[], config: { writable: boolean } }`. Route strings look like `"PATCH /v1/players/{id}"`. The official panel shows "change team" only when that route is present, and the config editor only when `config.writable` is true. **Not every server enables every route.**
 - **Browser callers:** an HTTPS page can call a TLS server directly; it cannot call a plaintext loopback listener (mixed content).
+- **Hosted reality check (xREALM, 2026-09-20):** the RCON endpoint the panel hands out (`<ip>:<mapped port>`) is **plain HTTP**, not TLS, despite the note above; the host maps the game's loopback listener out through its own port. So `RCON_SCHEME=http` there, and the bearer token crosses the internet unencrypted. Unauthenticated calls return `401 {"error":{"code":"credential_missing",…}}`. A live server reported 29 routes.
 - **Rate limits:** none published. The panel refreshes every 3–5 s; the wardogs.tech dashboard polls once a minute. Poll gently.
 - **Path params:** `{steamId}` is a SteamID64 string; `{id}` a map id; `{i}` a rotation entry index (integer).
 
