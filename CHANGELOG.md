@@ -3,6 +3,18 @@
 All notable changes to wardogs-plugins. Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/);
 versions follow semver. Dates are the day the change reached the live TAW WARDOGS NA server.
 
+## [Unreleased]
+
+### Added
+
+- **More than one game server per box.** `deploy/add-instance.sh <name> <port>` creates `instances/<name>/`
+  (own `.env`, `plugins.json`, `data/`), a `wardogs-plugins@<name>` service from the new template unit, and
+  Caddy routes for `/<name>/admin` and `/<name>/healthz`. `deploy/set-secret.sh <KEY> <name>` targets an
+  instance; `install.sh` restarts every instance after a rebuild. The EU server runs this way.
+- **Server switcher** in the panel: admin-panel options `label` and `otherPanels` link the panels to each other.
+- motd: the cadence survives restarts and saves (next line due relative to the last send); every send is logged.
+- Copy: in-game lines say "TAW WARDOGS NA" instead of expanding `{server}` to the full browser title.
+
 ## [2.0.0] - 2026-09-20
 
 The management release: the panel goes from a dashboard with toggles to the place the server is run from,

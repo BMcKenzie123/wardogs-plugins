@@ -43,6 +43,8 @@ Depends on blockers #1, #2, #4 being cleared. No code beyond configuration unles
 - first-timer (whisper), match-mvp, playtime-ranks: enable with the approved copy.
 - **Discord slash commands** (new plugin, needs a bot): `/status`, `/players`, `/broadcast` (moderator+), so
   admins act from Discord without opening the panel.
+- **Fleet view.** One page listing every instance (NA, EU, …): up/down, players, map, last MOTD, with links
+  into each panel. Today the panels link to each other; this adds the overview.
 - **Recruiting funnel numbers** in the panel: first-timers per week, third-visit conversions, pitch DMs sent,
   regulars count. All derivable from `data/stats` and `data/state`.
 

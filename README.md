@@ -268,6 +268,24 @@ That installs Caddy, gets a Let's Encrypt certificate automatically, proxies onl
 re-binds the app to loopback (`HTTP_BIND=127.0.0.1`) and opens ports 80/443. The dashboard and `/metrics`
 stay tunnel-only. `sslip.io` names map straight to the IP, so no domain is required.
 
+### More than one game server
+
+One box runs several servers, each with its own config, data, port and panel path, sharing the built code:
+
+```bash
+ssh -t wardogs-box "sh /opt/wardogs-plugins/deploy/add-instance.sh eu 8788"
+```
+
+```bash
+ssh -t wardogs-box "sh /opt/wardogs-plugins/deploy/set-secret.sh RCON_HOST eu"
+```
+
+Repeat the second command for `RCON_PORT eu` and `RCON_PASSWORD eu`. The first creates `instances/eu/`
+(`.env` with the primary's admins and keys, `plugins.json` copied from the primary with the unit name and URL
+paths adjusted, `data/`), the `wardogs-plugins@eu` service, and Caddy routes for `/eu/admin` and `/eu/healthz`.
+The panels link to each other through the admin-panel options `label` and `otherPanels`, and `install.sh`
+restarts every instance after a rebuild.
+
 ## Security
 
 The RCON password is a **full-access** token: it can kick, ban, replace the config, and end matches. Keep `.env`

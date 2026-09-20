@@ -29,6 +29,10 @@ interface Options {
   logLines: number;
   /** Override the Steam Web API base URL (tests). Empty = the real API. */
   steamBaseUrl: string;
+  /** This server's short name in the switcher and the tab title (e.g. "NA"). */
+  label: string;
+  /** Other servers' panels to link to, e.g. [{ "name": "EU", "url": "/eu/admin" }]. */
+  otherPanels: Array<{ name: string; url: string }>;
 }
 
 /** Best-effort: pull ids/names out of a loosely shaped catalog response. */
@@ -123,7 +127,7 @@ export default definePlugin<Options>({
   name: 'admin-panel',
   description:
     'Password-protected web admin: dashboard, player/server actions, plugin management (toggle, configure, restart), activity log',
-  defaults: { path: '/admin', auditRows: 15, logLines: 40, steamBaseUrl: '' },
+  defaults: { path: '/admin', auditRows: 15, logLines: 40, steamBaseUrl: '', label: '', otherPanels: [] },
   setup(ctx) {
     if (!ctx.host.httpPort) {
       ctx.log.warn('HTTP_PORT is not set; plugin is idle');
@@ -297,6 +301,18 @@ export default definePlugin<Options>({
       // writes plugins.json and restarts that one plugin. The panel can't switch off or reconfigure itself.
       const all = ctx.plugins();
 
+      // Fleet: this server's label and links to the other servers' panels.
+      const label = String(ctx.options.label ?? '').trim();
+      const others = (Array.isArray(ctx.options.otherPanels) ? ctx.options.otherPanels : []).filter(
+        (o) => o && typeof o === 'object' && typeof o.url === 'string' && o.url,
+      );
+      const switcher =
+        label || others.length
+          ? `<p class="servers">Servers: <b>${esc(label || 'this server')}</b>${others
+              .map((o) => ` · <a href="${esc(o.url)}">${esc(o.name || o.url)}</a>`)
+              .join('')}</p>`
+          : '';
+
       // Force MOTD: the motd plugin's messages, preselected to the next one in its rotation.
       const motd = all.find((p) => p.name === 'motd');
       const motdMessages = Array.isArray(motd?.options.messages)
@@ -336,7 +352,8 @@ export default definePlugin<Options>({
       const enabledCount = all.filter((p) => p.state === 'enabled').length;
       const activity = ctx.recentLog(Number(ctx.options.logLines)).map(formatLogLine).join('\n');
 
-      return `<!doctype html><html><head><meta charset="utf-8"><meta name="color-scheme" content="dark"><title>Admin · ${esc(status?.serverName ?? 'WARDOGS')}</title><style>${STYLE}</style></head><body>
+      return `<!doctype html><html><head><meta charset="utf-8"><meta name="color-scheme" content="dark"><title>Admin · ${label ? `${esc(label)} · ` : ''}${esc(status?.serverName ?? 'WARDOGS')}</title><style>${STYLE}</style></head><body>
+${switcher}
 <div data-live="status">${statusHeader(ctx)}</div>
 ${msg ? `<div class="flash">${esc(msg)}</div>` : ''}
 <h2>Players online</h2>

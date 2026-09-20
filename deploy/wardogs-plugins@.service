@@ -1,0 +1,24 @@
+[Unit]
+Description=WARDOGS RCON plugin host (%i)
+Documentation=https://wardogs.tech/rcon-reference
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=wardogs
+Group=wardogs
+# One instance per game server: instances/<name>/{.env, plugins.json, data/}, sharing the built code.
+WorkingDirectory=/opt/wardogs-plugins/instances/%i
+EnvironmentFile=/opt/wardogs-plugins/instances/%i/.env
+ExecStart=/usr/bin/env node /opt/wardogs-plugins/dist/index.js
+Restart=always
+RestartSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/wardogs-plugins/instances/%i
+
+[Install]
+WantedBy=multi-user.target

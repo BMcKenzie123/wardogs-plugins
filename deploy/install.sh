@@ -34,9 +34,15 @@ mkdir -p "$REPO/data"   # ReadWritePaths in the unit needs it to exist
 chown -R wardogs:wardogs "$REPO"
 chmod 600 .env
 
-# Point the unit at this checkout, then install it.
+# Point the units at this checkout, then install them (the @ template serves extra instances).
 sed "s#/opt/wardogs-plugins#$REPO#g" deploy/$UNIT > /etc/systemd/system/$UNIT
+sed "s#/opt/wardogs-plugins#$REPO#g" deploy/wardogs-plugins@.service > /etc/systemd/system/wardogs-plugins@.service
 systemctl daemon-reload
 systemctl enable --now $UNIT
 systemctl restart $UNIT
 systemctl --no-pager --lines=5 status $UNIT
+
+# Extra instances (deploy/add-instance.sh) share dist/, so they must pick up the new build too.
+for u in $(systemctl list-units --type=service --all --plain --no-legend 'wardogs-plugins@*' 2>/dev/null | awk '{print $1}'); do
+  systemctl restart "$u" && echo ".. restarted $u"
+done

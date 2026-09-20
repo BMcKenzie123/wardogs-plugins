@@ -86,7 +86,8 @@ form.opts{display:block;margin:.5rem 0 0;padding:.75rem;background:#242424;borde
 textarea{padding:.3rem .4rem;border:1px solid #3A3A3A;border-radius:4px;font:12px/1.45 ui-monospace,Consolas,monospace;background:#1C1C1C;color:#fff;resize:vertical}textarea:focus{outline:none;border-color:#C9A227}
 .def{color:#6E6E6E;font-size:.75rem;font-weight:400;text-transform:none;letter-spacing:0}
 .row{display:flex;flex-wrap:wrap;gap:.4rem;align-items:center}
-.av{width:22px;height:22px;border-radius:3px;vertical-align:middle;margin-right:.35rem;background:#3A3A3A}`;
+.av{width:22px;height:22px;border-radius:3px;vertical-align:middle;margin-right:.35rem;background:#3A3A3A}
+.servers{margin:0 0 .5rem;font-size:.85rem;letter-spacing:.06em;text-transform:uppercase;color:#6E6E6E}.servers b{color:#C9A227}.servers a{color:#C7C7C7;text-decoration:none;border-bottom:1px solid #6E6E6E}.servers a:hover{color:#fff;border-color:#C9A227}`;
 
 export function statusHeader(view: View): string {
   const snap = view.snapshot();
