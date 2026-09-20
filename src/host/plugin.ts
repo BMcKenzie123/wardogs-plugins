@@ -20,6 +20,16 @@ export interface PluginStatus {
   choices: Record<string, string[]>;
 }
 
+/** One player currently on the server, as the host tracks them. */
+export interface SessionInfo {
+  steamId: string;
+  name: string;
+  /** Exact join time when the host saw the join; null when they were already on at a baseline. */
+  joinedAt: number | null;
+  /** When the host first saw them in this run (restored across a quick restart). */
+  firstSeenAt: number;
+}
+
 export interface PluginContext<O = Record<string, unknown>> {
   readonly name: string;
   readonly rcon: RconClient;
@@ -37,6 +47,8 @@ export interface PluginContext<O = Record<string, unknown>> {
   lastPollAt(): number | null;
   /** Register cleanup to run when the host stops or this plugin is disabled (close listeners, clear timers). */
   onStop(fn: () => void | Promise<void>): void;
+  /** Who is on right now and since when (empty while the server is unreachable). */
+  sessions(): SessionInfo[];
   /** Every registered plugin with its current state and options. */
   plugins(): PluginStatus[];
   /** Turn a plugin on or off at runtime; the change is also written to the plugins file when possible. */

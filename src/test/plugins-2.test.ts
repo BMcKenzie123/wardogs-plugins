@@ -430,7 +430,7 @@ test('kill-streak (dm): the streak goes to the player alone', async () => {
   }
 });
 
-test('playtime-ranks (dm): a rank crossed at leave time is whispered on the next join', async () => {
+test('playtime-ranks (dm): the promotion is whispered to the player the moment they cross it', async () => {
   const s = await startMockServer();
   const { host } = makeHost(s, [playtimeRanks], {
     'playtime-ranks': {
@@ -443,16 +443,13 @@ test('playtime-ranks (dm): a rank crossed at leave time is whispered on the next
     await host.start();
     await waitFor(() => requestsTo(s, 'GET', '/v1/players').length >= 1);
     s.state.players.push(player('a'));
-    await sleep(120);
-    s.state.players = [];
-    await sleep(150);
-    assert.equal(requestsTo(s, 'POST', '/v1/players/a/message').length, 0, 'gone: nobody to whisper to');
-    assert.equal(requestsTo(s, 'POST', '/v1/broadcast').length, 0);
-    s.state.players.push(player('a'));
-    await waitFor(() => requestsTo(s, 'POST', '/v1/players/a/message').length === 1, 2000, 'dm on return');
+    await waitFor(() => requestsTo(s, 'POST', '/v1/players/a/message').length === 1, 2000, 'dm while on');
     assert.deepEqual(bodyOf(requestsTo(s, 'POST', '/v1/players/a/message')[0]), {
       message: 'you are now Regular',
     });
+    assert.equal(requestsTo(s, 'POST', '/v1/broadcast').length, 0, 'nothing shouted');
+    await sleep(100);
+    assert.equal(requestsTo(s, 'POST', '/v1/players/a/message').length, 1, 'announced once');
   } finally {
     await host.stop();
     await s.close();

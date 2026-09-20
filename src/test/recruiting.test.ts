@@ -265,3 +265,22 @@ test('event-announcer: next occurrence and due reminders', () => {
   assert.equal(inWords(60), 'in 1 hour');
   assert.equal(inWords(120), 'in 2 hours');
 });
+
+test('regulars: play time accrues every poll while the player is on, not only when they leave', async () => {
+  const s = await startMockServer({ state: { players: [player('r', { name: 'Rae' })] } });
+  const { host, dataDir } = makeHost(s, regulars, { tiers: [] });
+  try {
+    await host.start();
+    await waitFor(() => s.requests.filter((r) => r.path === '/v1/players').length >= 2);
+    await sleep(300);
+  } finally {
+    await host.stop(); // flushes the plugin's state
+    await s.close();
+  }
+  const state = JSON.parse(fs.readFileSync(path.join(dataDir, 'state', 'regulars.json'), 'utf8')) as {
+    players: Record<string, { visits: number; minutes: number }>;
+  };
+  assert.equal(state.players.r?.visits, 1, 'already on at the baseline counts as a visit');
+  assert.ok((state.players.r?.minutes ?? 0) > 0.003, `minutes accrued while on: ${state.players.r?.minutes}`);
+  assert.ok((state.players.r?.minutes ?? 0) < 0.05, 'and not more than the time watched');
+});

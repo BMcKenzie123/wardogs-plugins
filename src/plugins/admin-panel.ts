@@ -1,4 +1,5 @@
 import { createHash, randomBytes } from 'node:crypto';
+import path from 'node:path';
 import { authenticate, parseAdminUsers, type AdminUser } from '../host/admins.ts';
 import type http from 'node:http';
 import { acquireWebServer } from '../host/webserver.ts';
@@ -13,6 +14,7 @@ import {
   esc,
   hourlySection,
   leaderboardSection,
+  readJson,
   regularsSection,
   statusHeader,
   table,
@@ -294,6 +296,14 @@ export default definePlugin<Options>({
       // Automation: every registered plugin, its state, a toggle, and an editor for its options. Saving
       // writes plugins.json and restarts that one plugin. The panel can't switch off or reconfigure itself.
       const all = ctx.plugins();
+
+      // Force MOTD: the motd plugin's messages, preselected to the next one in its rotation.
+      const motd = all.find((p) => p.name === 'motd');
+      const motdMessages = Array.isArray(motd?.options.messages)
+        ? (motd!.options.messages as unknown[]).map(String).filter(Boolean)
+        : [];
+      const motdState = await readJson<{ index?: number }>(path.join(ctx.host.dataDir, 'state', 'motd.json'));
+      const motdNext = motdMessages.length ? Number(motdState?.index ?? 0) % motdMessages.length : 0;
       const pluginRows = all
         .map((p) => {
           const self = p.name === ctx.name;
@@ -334,6 +344,7 @@ ${msg ? `<div class="flash">${esc(msg)}</div>` : ''}
 <h2>Server</h2>
 <div class="grid">
 ${form(`<b>Broadcast</b><input type="text" name="text" placeholder="message to everyone" style="flex:1"><button name="action" value="broadcast">Send</button>`)}
+${motdMessages.length ? form(`<b>MOTD</b><select name="text" style="flex:1;min-width:12rem">${motdMessages.map((m, i) => `<option${i === motdNext ? ' selected' : ''}>${esc(m)}</option>`).join('')}</select><button name="action" value="broadcast" title="Broadcast this MOTD line right now">Send now</button>`) : ''}
 ${form(`<b>Change map</b><input type="text" name="map" list="maps" placeholder="map id" required><input type="text" name="experiences" placeholder="experiences (a+b)"><input type="text" name="lighting" list="lightings" placeholder="lighting"><button name="action" value="map">Change now</button>${datalist('maps', maps)}`)}
 ${form(`<b>Lighting</b><input type="text" name="lighting" list="lightings" placeholder="preset" required><button name="action" value="lighting">Set</button>${datalist('lightings', lightings)}`)}
 ${form(`<b>Match</b><button class="soft" name="action" value="restart">Restart</button><button class="warn" name="action" value="end" onclick="return confirm('End the current match?')">End match</button>`)}

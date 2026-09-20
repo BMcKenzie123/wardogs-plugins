@@ -19,7 +19,7 @@ import {
 import adminPanel from '../plugins/admin-panel.ts';
 import motd from '../plugins/motd.ts';
 import { freePort, httpRequest, player, startMockServer, TOKEN, waitFor } from './mock-server.ts';
-import { makeHost, requestsTo } from './helpers.ts';
+import { makeHost, requestsTo, seedState } from './helpers.ts';
 
 test('options-form: kinds, encode/decode round-trip, parse from a form', () => {
   assert.equal(kindOf(5), 'num');
@@ -320,4 +320,43 @@ test('options-form: choices render as a dropdown with the current value selected
   assert.match(html, /name="k:mode" value="str"/);
   const odd = renderOptionFields({ mode: 'broadcast' }, { mode: 'whisper' }, { mode: ['broadcast', 'dm'] });
   assert.match(odd, /<option value="whisper" selected>/, 'an off-list value stays selectable');
+});
+
+test('admin-panel: the MOTD card lists the motd messages with the next one in rotation preselected', async () => {
+  const port = await freePort();
+  const s = await startMockServer({ state: { players: [player('a')] } });
+  const { host, dataDir } = makeHost(
+    s,
+    [adminPanel, motd],
+    { 'admin-panel': { path: '/admin' }, motd: { intervalMinutes: 60, messages: ['one', 'two & three'] } },
+    { httpPort: port, adminPassword: 'hunter2hunter2' },
+  );
+  seedState(dataDir, 'motd', { index: 1 });
+  const auth = { Authorization: `Basic ${Buffer.from('x:hunter2hunter2').toString('base64')}` };
+  try {
+    await host.start();
+    await waitFor(() => requestsTo(s, 'GET', '/v1/status').length >= 1);
+    const page = await httpRequest(`http://127.0.0.1:${port}/admin`, { headers: auth });
+    assert.match(
+      page.body,
+      /<b>MOTD<\/b><select name="text"[^>]*><option>one<\/option><option selected>two &amp; three<\/option><\/select><button name="action" value="broadcast"[^>]*>Send now<\/button>/,
+    );
+    const csrf = /name="_csrf" value="([a-f0-9]{32})"/.exec(page.body)![1]!;
+    const sent = await httpRequest(`http://127.0.0.1:${port}/admin/action`, {
+      method: 'POST',
+      headers: {
+        ...auth,
+        'Content-Type': 'application/x-www-form-urlencoded',
+        Origin: `http://127.0.0.1:${port}`,
+      },
+      body: new URLSearchParams({ action: 'broadcast', text: 'two & three', _csrf: csrf }).toString(),
+    });
+    assert.equal(sent.status, 303);
+    assert.deepEqual(JSON.parse(requestsTo(s, 'POST', '/v1/broadcast').at(-1)!.body), {
+      message: 'two & three',
+    });
+  } finally {
+    await host.stop();
+    await s.close();
+  }
 });

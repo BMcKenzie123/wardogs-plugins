@@ -16,7 +16,11 @@ export interface View {
   host: HostConfig;
   snapshot(): Snapshot | null;
   serverUp(): boolean;
+  /** Who is on right now and since when, so play-time figures include the session in progress. */
+  sessions(): Array<{ steamId: string; name: string; joinedAt: number | null; firstSeenAt: number }>;
 }
+
+const ON_NOW = '<span class="pill enabled" title="on the server right now">on</span>';
 
 export const esc = (value: unknown): string =>
   String(value ?? '')
@@ -33,10 +37,15 @@ export async function readJson<T>(file: string): Promise<T | null> {
   }
 }
 
-export function table(headers: string[], rows: unknown[][]): string {
+/** `raw` = cells are already HTML (the caller escaped what needed escaping). */
+export function table(headers: string[], rows: unknown[][], raw = false): string {
   if (!rows.length) return '<p class="muted">nothing yet</p>';
   const head = headers.map((h) => `<th>${esc(h)}</th>`).join('');
-  const body = rows.map((row) => `<tr>${row.map((cell) => `<td>${esc(cell)}</td>`).join('')}</tr>`).join('');
+  const body = rows
+    .map(
+      (row) => `<tr>${row.map((cell) => `<td>${raw ? String(cell ?? '') : esc(cell)}</td>`).join('')}</tr>`,
+    )
+    .join('');
   return `<table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>`;
 }
 
@@ -101,15 +110,64 @@ export function playersTable(view: View): string {
   );
 }
 
+interface BoardRow {
+  name: string;
+  kills: number;
+  deaths: number;
+  minutes: number;
+  sessions: number;
+  on: boolean;
+}
+
+/** All-time totals from the leaderboard file, plus the session in progress for everyone on right now. */
 export async function leaderboardSection(view: View): Promise<string> {
   const board = await readJson<{ updatedAt: string; rows: Array<Record<string, unknown>> }>(
     path.join(view.host.dataDir, 'leaderboard.json'),
   );
+  const rows = new Map<string, BoardRow>();
+  for (const r of board?.rows ?? [])
+    rows.set(String(r.steamId ?? r.name), {
+      name: String(r.name ?? ''),
+      kills: Number(r.kills ?? 0),
+      deaths: Number(r.deaths ?? 0),
+      minutes: Number(r.minutes ?? 0),
+      sessions: Number(r.sessions ?? 0),
+      on: false,
+    });
+  const now = Date.now();
+  const live = new Map((view.snapshot()?.players ?? []).map((p) => [p.steamId, p]));
+  for (const s of view.sessions()) {
+    const row = rows.get(s.steamId) ?? {
+      name: s.name,
+      kills: 0,
+      deaths: 0,
+      minutes: 0,
+      sessions: 0,
+      on: false,
+    };
+    const p = live.get(s.steamId);
+    row.name = s.name;
+    row.minutes += (now - (s.joinedAt ?? s.firstSeenAt)) / 60_000;
+    row.kills += p?.kills ?? 0;
+    row.deaths += p?.deaths ?? 0;
+    row.sessions += 1;
+    row.on = true;
+    rows.set(s.steamId, row);
+  }
   return table(
     ['#', 'Name', 'Kills', 'Deaths', 'Minutes', 'Sessions'],
-    (board?.rows ?? [])
+    [...rows.values()]
+      .sort((a, b) => b.kills - a.kills || b.minutes - a.minutes)
       .slice(0, 20)
-      .map((r, i) => [i + 1, r.name, r.kills, r.deaths, Math.round(Number(r.minutes ?? 0)), r.sessions]),
+      .map((r, i) => [
+        i + 1,
+        `${esc(r.name)}${r.on ? ` ${ON_NOW}` : ''}`,
+        r.kills,
+        r.deaths,
+        Math.round(r.minutes),
+        r.sessions,
+      ]),
+    true,
   );
 }
 
@@ -117,16 +175,22 @@ export async function regularsSection(view: View): Promise<string> {
   const regulars = await readJson<Array<Record<string, unknown>>>(
     path.join(view.host.dataDir, 'regulars.json'),
   );
+  const on = new Set(view.sessions().map((s) => s.steamId));
   return table(
     ['Name', 'Visits', 'Minutes', 'Last seen'],
     (regulars ?? []).slice(0, 20).map((r) => [
-      r.name,
+      esc(r.name),
       r.visits,
       r.minutes,
-      String(r.lastSeen ?? '')
-        .slice(0, 16)
-        .replace('T', ' '),
+      on.has(String(r.steamId))
+        ? ON_NOW
+        : esc(
+            String(r.lastSeen ?? '')
+              .slice(0, 16)
+              .replace('T', ' '),
+          ),
     ]),
+    true,
   );
 }
 

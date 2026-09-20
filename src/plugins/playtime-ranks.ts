@@ -8,15 +8,15 @@ interface Rank {
 }
 
 interface Options {
-  /** broadcast: everyone hears the promotion. dm: a whisper to the player, delivered while they are on. */
+  /** broadcast: everyone hears the promotion. dm: a whisper to the player. */
   mode: 'broadcast' | 'dm';
   ranks: Rank[];
   announce: string;
 }
 
 /**
- * Announces persistent playtime rank promotions. Time is credited when a session ends, so a rank
- * crossed at leave time is broadcast right away; in dm mode it waits for the player's next join.
+ * Persistent play-time ranks. Time accrues every poll while a player is on (so a crash or restart
+ * loses at most one poll), and a promotion is announced the moment the threshold is crossed.
  */
 export default definePlugin<Options>({
   name: 'playtime-ranks',
@@ -33,33 +33,40 @@ export default definePlugin<Options>({
   choices: { mode: SAY_MODES },
   setup(ctx) {
     const mode = sayMode(ctx.options.mode, 'broadcast');
-    const check = async (id: string, name: string, server: string, present: boolean) => {
-      if (mode === 'dm' && !present) return; // nobody to whisper to; it fires on their next join
+    const ranks = Array.isArray(ctx.options.ranks) ? ctx.options.ranks : [];
+    let lastTick = 0;
+
+    ctx.on('tick', async ({ snapshot }) => {
+      const now = snapshot.at;
+      // Credit only time we actually watched: a gap longer than two polls (outage, restart) is not played time.
+      const elapsed = lastTick ? Math.min(now - lastTick, 2 * ctx.host.pollMs + 1000) : 0;
+      lastTick = now;
+      if (!elapsed || !snapshot.players.length) return;
       const minutes = ctx.state.get<Record<string, number>>('minutes', {});
       const announced = ctx.state.get<Record<string, number>>('announced', {});
-      for (let index = 0; index < ctx.options.ranks.length; index += 1) {
-        const rank = ctx.options.ranks[index]!;
-        if ((minutes[id] ?? 0) >= rank.hours * 60 && (announced[id] ?? -1) < index) {
-          await say(
-            ctx.rcon,
-            mode,
-            id,
-            fill(ctx.options.announce, { name, title: rank.title, hours: rank.hours, server }),
-          );
-          announced[id] = index;
-          ctx.state.set('announced', announced);
+      for (const p of snapshot.players) minutes[p.steamId] = (minutes[p.steamId] ?? 0) + elapsed / 60_000;
+      ctx.state.set('minutes', minutes);
+      for (const p of snapshot.players) {
+        for (let index = 0; index < ranks.length; index += 1) {
+          const rank = ranks[index]!;
+          if ((minutes[p.steamId] ?? 0) >= Number(rank.hours) * 60 && (announced[p.steamId] ?? -1) < index) {
+            await say(
+              ctx.rcon,
+              mode,
+              p.steamId,
+              fill(ctx.options.announce, {
+                name: p.name,
+                title: rank.title,
+                hours: rank.hours,
+                server: snapshot.status.serverName,
+              }),
+            );
+            announced[p.steamId] = index;
+            ctx.state.set('announced', announced);
+          }
         }
       }
-    };
-    ctx.on('player.join', ({ player, snapshot }) =>
-      check(player.steamId, player.name, snapshot.status.serverName, true),
-    );
-    ctx.on('player.leave', async ({ player, sessionSeconds, observedSeconds, snapshot }) => {
-      const minutes = ctx.state.get<Record<string, number>>('minutes', {});
-      minutes[player.steamId] = (minutes[player.steamId] ?? 0) + (sessionSeconds ?? observedSeconds) / 60;
-      ctx.state.set('minutes', minutes);
-      await check(player.steamId, player.name, snapshot.status.serverName, false);
     });
-    ctx.log.info(`${ctx.options.ranks.length} ranks (${mode})`);
+    ctx.log.info(`${ranks.length} ranks (${mode})`);
   },
 });

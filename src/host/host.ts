@@ -5,7 +5,7 @@ import type { HostConfig, PluginsFile } from '../config.ts';
 import type { Capabilities, Player } from '../rcon/types.ts';
 import type { Events, EventName, Snapshot } from './events.ts';
 import type { LogBuffer, Logger } from './logger.ts';
-import type { AnyPlugin, PluginContext, PluginStatus } from './plugin.ts';
+import type { AnyPlugin, PluginContext, PluginStatus, SessionInfo } from './plugin.ts';
 import { Store } from './store.ts';
 
 type Handler = (payload: never) => void | Promise<void>;
@@ -113,6 +113,18 @@ export class PluginHost {
   /** Current state of every registered plugin. */
   listPlugins(): PluginStatus[] {
     return [...this.status.values()];
+  }
+
+  /** Everyone on right now with their session start, for live play-time figures. */
+  listSessions(): SessionInfo[] {
+    if (this.up === false) return [];
+    const now = Date.now();
+    return [...this.lastSeen.values()].map((p) => ({
+      steamId: p.steamId,
+      name: p.name,
+      joinedAt: this.joinedAt.get(p.steamId) ?? null,
+      firstSeenAt: this.firstSeenAt.get(p.steamId) ?? now,
+    }));
   }
 
   /** Effective options for a plugin: defaults overlaid with the plugins-file entry (minus `enabled`). */
@@ -294,6 +306,7 @@ export class PluginHost {
       onStop: (fn) => {
         owned.stops.push(fn);
       },
+      sessions: () => this.listSessions(),
       plugins: () => this.listPlugins(),
       setPluginEnabled: (n, on) => this.setPluginEnabled(n, on),
       setPluginOptions: (n, o) => this.setPluginOptions(n, o),

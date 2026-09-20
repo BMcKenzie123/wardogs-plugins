@@ -31,7 +31,8 @@ export function tierFor(visits: number, tiers: Tier[]): Tier | undefined {
 
 /**
  * Counts visits and play time per steamId, DMs milestone messages ("3rd visit — join the clan"),
- * and keeps a leaderboard file so you can see who your real regulars are.
+ * and keeps a leaderboard file so you can see who your real regulars are. Play time accrues every
+ * poll while the player is on, so the figures are live and a restart loses at most one poll.
  */
 export default definePlugin<Options>({
   name: 'regulars',
@@ -53,6 +54,10 @@ export default definePlugin<Options>({
   setup(ctx) {
     const tiers = Array.isArray(ctx.options.tiers) ? ctx.options.tiers : [];
     const file = path.join(ctx.host.dataDir, 'regulars.json');
+    const timers = new Set<NodeJS.Timeout>();
+    ctx.onStop(() => {
+      for (const t of timers) clearTimeout(t);
+    });
 
     const players = (): Record<string, Record_> => ctx.state.get<Record<string, Record_>>('players', {});
 
@@ -65,25 +70,26 @@ export default definePlugin<Options>({
       await fs.writeFile(file, JSON.stringify(rows, null, 2));
     };
 
-    ctx.on('player.join', async ({ player, snapshot }) => {
+    const record = (steamId: string, name: string, at: string): Record_ => {
       const all = players();
+      const rec = all[steamId] ?? { name, visits: 0, minutes: 0, firstSeen: at, lastSeen: at };
+      all[steamId] = rec;
+      ctx.state.set('players', all);
+      return rec;
+    };
+
+    ctx.on('player.join', async ({ player, snapshot }) => {
       const now = new Date().toISOString();
-      const rec: Record_ = all[player.steamId] ?? {
-        name: player.name,
-        visits: 0,
-        minutes: 0,
-        firstSeen: now,
-        lastSeen: now,
-      };
+      const rec = record(player.steamId, player.name, now);
       rec.visits += 1;
       rec.name = player.name;
       rec.lastSeen = now;
-      all[player.steamId] = rec;
-      ctx.state.set('players', all);
+      ctx.state.set('players', players());
 
       const tier = tierFor(rec.visits, tiers);
       if (tier) {
-        setTimeout(() => {
+        const t = setTimeout(() => {
+          timers.delete(t);
           if (!ctx.snapshot()?.players.some((p) => p.steamId === player.steamId)) return;
           ctx.rcon
             .message(
@@ -98,15 +104,39 @@ export default definePlugin<Options>({
             .then(() => ctx.log.info(`milestone ${rec.visits} visits → ${player.name} (${player.steamId})`))
             .catch((e: unknown) => ctx.log.warn(`milestone DM to ${player.steamId} failed`, e));
         }, Number(ctx.options.delayMs));
+        timers.add(t);
       }
       await writeLeaderboard();
     });
 
-    ctx.on('player.leave', async ({ player, sessionSeconds, observedSeconds }) => {
+    // Play time: credit every poll's interval to everyone on. Someone already on when the host started
+    // (no join seen) gets a record on first sight, counted as one visit.
+    let lastTick = 0;
+    let lastWrite = 0;
+    ctx.on('tick', async ({ snapshot }) => {
+      const now = snapshot.at;
+      const elapsed = lastTick ? Math.min(now - lastTick, 2 * ctx.host.pollMs + 1000) : 0;
+      lastTick = now;
+      if (!snapshot.players.length) return;
+      const iso = new Date(now).toISOString();
+      for (const p of snapshot.players) {
+        const rec = record(p.steamId, p.name, iso);
+        if (rec.visits === 0) rec.visits = 1;
+        rec.name = p.name;
+        rec.minutes += elapsed / 60_000;
+        rec.lastSeen = iso;
+      }
+      ctx.state.set('players', players());
+      if (now - lastWrite >= 60_000) {
+        lastWrite = now;
+        await writeLeaderboard();
+      }
+    });
+
+    ctx.on('player.leave', async ({ player }) => {
       const all = players();
       const rec = all[player.steamId];
       if (!rec) return;
-      rec.minutes += (sessionSeconds ?? observedSeconds) / 60;
       rec.lastSeen = new Date().toISOString();
       ctx.state.set('players', all);
       await writeLeaderboard();
