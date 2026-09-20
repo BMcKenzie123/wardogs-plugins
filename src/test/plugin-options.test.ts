@@ -263,3 +263,50 @@ test('admin-panel: editing options through the form saves and restarts the plugi
     await s.close();
   }
 });
+
+test('host: when plugins.json cannot be written the change still applies and the error says so', async () => {
+  const s = await startMockServer();
+  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'wdp-'));
+  const setups: string[] = [];
+  const p = definePlugin<{ text: string }>({
+    name: 'p',
+    description: '',
+    defaults: { text: 'a' },
+    setup(ctx) {
+      setups.push(ctx.options.text);
+    },
+  });
+  const host = new PluginHost({
+    rcon: new RconClient({
+      host: '127.0.0.1',
+      port: s.port,
+      scheme: 'http',
+      password: TOKEN,
+      tlsInsecure: false,
+      timeoutMs: 500,
+    }),
+    config: {
+      pollMs: 20,
+      auditPollMs: 1000,
+      dataDir,
+      logLevel: 'error',
+      pluginsFile: path.join(dataDir, 'missing', 'plugins.json'),
+    },
+    plugins: { p: { enabled: true } },
+    registry: { p },
+    logger: createLogger('error'),
+  });
+  try {
+    await host.start();
+    await assert.rejects(
+      host.setPluginOptions('p', { text: 'b' }),
+      /p was applied but NOT saved: could not write/,
+    );
+    assert.deepEqual(setups, ['a', 'b'], 'the plugin was still restarted with the new options');
+    await assert.rejects(host.setPluginEnabled('p', false), /NOT saved/);
+    assert.equal(host.listPlugins().find((x) => x.name === 'p')?.state, 'disabled');
+  } finally {
+    await host.stop();
+    await s.close();
+  }
+});

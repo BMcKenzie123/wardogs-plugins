@@ -140,16 +140,16 @@ export class PluginHost {
     const clean = { ...options };
     delete clean.enabled;
     this.plugins[name] = { enabled, ...clean };
+    await this.reapply(name); // apply first: a persistence failure is reported, not silently swallowed
     await this.persistPlugin(name);
-    await this.reapply(name);
   }
 
   /** Back to the plugin's built-in defaults; only `enabled` survives. */
   async resetPluginOptions(name: string): Promise<void> {
     if (!this.registry[name]) throw new Error(`unknown plugin "${name}"`);
     this.plugins[name] = { enabled: this.plugins[name]?.enabled === true };
-    await this.persistPlugin(name);
     await this.reapply(name);
+    await this.persistPlugin(name);
   }
 
   /** Stop and start a running plugin with its current options (no-op when it is not running). */
@@ -169,7 +169,12 @@ export class PluginHost {
     }
   }
 
-  /** Rewrite one plugin's entry in the plugins file, leaving every other key (and `$comment`s) alone. */
+  /**
+   * Rewrite one plugin's entry in the plugins file, leaving every other key (and `$comment`s) alone.
+   * Written in place rather than via rename: under systemd's ProtectSystem=strict the file is exposed
+   * as a bind mount, and a rename would swap it out from under the service. Throws when the file cannot
+   * be written, so callers can tell the admin the change is live but unsaved.
+   */
   private async persistPlugin(name: string): Promise<void> {
     const file = this.config.pluginsFile;
     try {
@@ -178,7 +183,9 @@ export class PluginHost {
       await fs.writeFile(file, JSON.stringify(json, null, 2) + '\n');
       this.logger.info(`saved ${name} to ${file}`);
     } catch (e) {
-      this.logger.warn(`could not persist ${name} to ${file}`, e);
+      const detail = e instanceof Error ? e.message : String(e);
+      this.logger.warn(`could not persist ${name} to ${file}: ${detail}`);
+      throw new Error(`${name} was applied but NOT saved: could not write ${file} (${detail})`);
     }
   }
 

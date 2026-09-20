@@ -13,12 +13,13 @@ EnvironmentFile=/opt/wardogs-plugins/.env
 ExecStart=/usr/bin/env node dist/index.js
 Restart=always
 RestartSec=5
-# Hardening: the process only needs to read its checkout and write ./data.
+# Hardening: the process only needs to read its checkout and write ./data, plus plugins.json,
+# which the admin panel rewrites when an admin changes a plugin's options or toggles it.
 NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict
 ProtectHome=true
-ReadWritePaths=/opt/wardogs-plugins/data
+ReadWritePaths=/opt/wardogs-plugins/data /opt/wardogs-plugins/plugins.json
 
 [Install]
 WantedBy=multi-user.target

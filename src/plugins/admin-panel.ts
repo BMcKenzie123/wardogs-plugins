@@ -262,7 +262,7 @@ export default definePlugin<Options>({
           else if (self)
             editor = `<span class="def">${keys.length} option(s) · edit this plugin in plugins.json and restart the service</span>`;
           else
-            editor = `<details><summary>Configure · ${keys.length} option${keys.length === 1 ? '' : 's'}${custom ? ` · ${custom} customized` : ' · all defaults'}</summary>${form(
+            editor = `<details data-plugin="${esc(p.name)}"><summary>Configure · ${keys.length} option${keys.length === 1 ? '' : 's'}${custom ? ` · ${custom} customized` : ' · all defaults'}</summary>${form(
               `${nameField}<div class="fields">${renderOptionFields(p.defaults, p.options)}</div><div class="row"><button name="action" value="plugin-options">Save &amp; apply</button><button class="soft" name="action" value="plugin-reset" onclick="return confirm('Reset ${esc(p.name)} to its defaults?')">Reset to defaults</button><span class="def">saved to ${esc(ctx.host.pluginsFile)}; ${p.state === 'enabled' ? 'the plugin restarts with the new values' : 'applies when the plugin is enabled'}</span></div>`,
               'opts',
             )}</details>`;
@@ -296,8 +296,21 @@ ${canSponsor ? form(`<b>Sponsor banner</b><input type="text" name="imageUrl" pla
 <h2>Audit log</h2>${auditHtml}
 <div class="grid"><div><h2>All-time leaderboard</h2>${await leaderboardSection(ctx)}</div><div><h2>Regulars</h2>${await regularsSection(ctx)}</div></div>
 <h2>Average players by hour (last 24 h)</h2>${await hourlySection(ctx)}
-<p class="muted">wardogs-plugins admin · signed in as <b>${esc(who)}</b> · ${users.length ? `${users.length} named admin(s)` : 'shared password'} · ${canFaction ? 'faction moves enabled' : 'faction moves not supported by this server'} · auto-refreshes when idle</p>
-<script>setTimeout(function(){var a=document.activeElement;if(!a||!/INPUT|TEXTAREA|SELECT/.test(a.tagName))location.replace(location.pathname)},30000)</script>
+<p class="muted">wardogs-plugins admin · signed in as <b>${esc(who)}</b> · ${users.length ? `${users.length} named admin(s)` : 'shared password'} · ${canFaction ? 'faction moves enabled' : 'faction moves not supported by this server'} · auto-refreshes every 30 s while no editor is open</p>
+<script>
+(function(){
+var K='wdp:'+location.pathname;
+function openDrawers(){return [].map.call(document.querySelectorAll('details[open][data-plugin]'),function(d){return d.dataset.plugin})}
+function save(){try{sessionStorage.setItem(K,JSON.stringify({y:window.scrollY,open:openDrawers()}))}catch(e){}}
+// Restore where the admin was (scroll position, open drawers) after a refresh or an action's redirect.
+try{var s=JSON.parse(sessionStorage.getItem(K)||'{}');(s.open||[]).forEach(function(n){var d=document.querySelector('details[data-plugin="'+n+'"]');if(d)d.open=true});if(s.y)window.scrollTo(0,s.y)}catch(e){}
+window.addEventListener('scroll',save,{passive:true});
+document.addEventListener('toggle',save,true);
+document.addEventListener('submit',save,true);
+// Refresh only when nothing is being edited: no focused field and no open drawer.
+setInterval(function(){var a=document.activeElement;if(a&&/INPUT|TEXTAREA|SELECT/.test(a.tagName))return;if(document.querySelector('details[open]'))return;save();location.replace(location.pathname)},30000);
+})();
+</script>
 </body></html>`;
     };
 
@@ -423,6 +436,16 @@ ${canSponsor ? form(`<b>Sponsor banner</b><input type="text" name="imageUrl" pla
         res.end(await page(req, who));
       },
     });
+    // A tab left on the action URL (after an error page, or the browser's back button) reloads as a
+    // GET; send it to the panel instead of a 404.
+    const unregisterGetAction = web.register({
+      method: 'GET',
+      path: actionPath,
+      handler: async (_req, res) => {
+        res.writeHead(303, { Location: pagePath });
+        res.end();
+      },
+    });
     const unregisterPost = web.register({
       method: 'POST',
       path: actionPath,
@@ -460,6 +483,7 @@ ${canSponsor ? form(`<b>Sponsor banner</b><input type="text" name="imageUrl" pla
     });
     ctx.onStop(() => {
       unregisterGet();
+      unregisterGetAction();
       unregisterPost();
       web.release();
     });

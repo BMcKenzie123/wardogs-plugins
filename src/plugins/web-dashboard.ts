@@ -62,7 +62,7 @@ input:focus,select:focus{outline:none;border-color:#C9A227}
 button{padding:.3rem .6rem;border:1px solid #930000;background:#930000;color:#fff;border-radius:4px;font:inherit;cursor:pointer}button:hover{background:#C1272D;border-color:#C1272D}
 button.soft{background:transparent;color:#C7C7C7;border-color:#6E6E6E}button.soft:hover{background:#3A3A3A;border-color:#C7C7C7;color:#fff}
 button.warn{background:#5C0000;border-color:#C1272D}button.warn:hover{background:#C1272D}
-.flash{background:#2a2411;border:1px solid #C9A227;color:#fff;padding:.5rem .75rem;border-radius:4px;margin:.75rem 0}
+.flash{background:#2a2411;border:1px solid #C9A227;color:#fff;padding:.5rem .75rem;border-radius:4px;margin:.75rem 0;position:sticky;top:.5rem;z-index:5;box-shadow:0 2px 10px #000c}
 .tag{font-size:.75rem;color:#C7C7C7;background:#3A3A3A;border-radius:3px;padding:.05rem .35rem}
 .pill{display:inline-block;padding:.05rem .5rem;border-radius:999px;font-size:.75rem;font-weight:600;text-transform:uppercase;letter-spacing:.04em}
 .pill.enabled{background:#2F4858;color:#fff}.pill.disabled{background:#3A3A3A;color:#C7C7C7}.pill.skipped{background:#5C0000;color:#fff}.pill.failed{background:#C1272D;color:#fff}

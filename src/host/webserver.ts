@@ -51,6 +51,7 @@ export function acquireWebServer(
       const pathname = new URL(req.url ?? '/', 'http://localhost').pathname;
       const route = routes.get(`${method} ${pathname}`);
       if (!route) {
+        logger.info(`no route for ${method} ${pathname}`);
         res.writeHead(404, { 'Content-Type': 'text/plain' });
         res.end('not found');
         return;

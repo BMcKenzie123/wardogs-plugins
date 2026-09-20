@@ -21,6 +21,16 @@ export function makeHost(
   over: Partial<HostConfig> = {},
 ): HostHandle {
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'wdp-'));
+  // A real plugins file, so toggles and option edits made during a test can persist like in production.
+  const pluginsFile = path.join(dataDir, 'plugins.json');
+  fs.writeFileSync(
+    pluginsFile,
+    JSON.stringify(
+      Object.fromEntries(plugins.map((p) => [p.name, { enabled: true, ...(options[p.name] ?? {}) }])),
+      null,
+      2,
+    ),
+  );
   const host = new PluginHost({
     rcon: new RconClient({
       host: '127.0.0.1',
@@ -30,7 +40,7 @@ export function makeHost(
       tlsInsecure: false,
       timeoutMs: 500,
     }),
-    config: { pollMs: 20, auditPollMs: 30, dataDir, logLevel: 'error', pluginsFile: 'unused', ...over },
+    config: { pollMs: 20, auditPollMs: 30, dataDir, logLevel: 'error', pluginsFile, ...over },
     plugins: Object.fromEntries(plugins.map((p) => [p.name, { enabled: true, ...(options[p.name] ?? {}) }])),
     registry: Object.fromEntries(plugins.map((p) => [p.name, p])),
     logger: createLogger('error'),

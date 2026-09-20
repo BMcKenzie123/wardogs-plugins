@@ -56,6 +56,11 @@ test('admin-panel: auth, csrf, actions, and plugin toggles', async () => {
     const csrf = /name="_csrf" value="([a-f0-9]{32})"/.exec(page.body)?.[1];
     assert.ok(csrf, 'csrf token rendered');
 
+    // Reloading the action URL (a tab left on an error page) goes back to the panel instead of a 404.
+    const reload = await httpRequest(`${base}/admin/action`, { headers: AUTH });
+    assert.equal(reload.status, 303);
+    assert.equal(reload.headers.location, '/admin');
+
     const post = (fields: Record<string, string>, headers: Record<string, string> = AUTH) =>
       httpRequest(`${base}/admin/action`, {
         method: 'POST',
