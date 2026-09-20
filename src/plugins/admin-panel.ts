@@ -2,7 +2,8 @@ import { createHash, randomBytes } from 'node:crypto';
 import { authenticate, parseAdminUsers, type AdminUser } from '../host/admins.ts';
 import type http from 'node:http';
 import { acquireWebServer } from '../host/webserver.ts';
-import { definePlugin } from '../host/plugin.ts';
+import { parseOptionFields, renderOptionFields } from '../host/options-form.ts';
+import { definePlugin, type PluginStatus } from '../host/plugin.ts';
 import { sponsorUrlProblem } from '../host/sponsor.ts';
 import { RconError } from '../rcon/client.ts';
 import {
@@ -76,6 +77,14 @@ function makeAuthorizer(
   };
 }
 
+/** Only the options that differ from the plugin's defaults, so plugins.json stays as small as a hand-written one. */
+export function overridesOf(status: PluginStatus, options: Record<string, unknown>): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(options))
+    if (JSON.stringify(value) !== JSON.stringify(status.defaults[key])) out[key] = value;
+  return out;
+}
+
 function sameOrigin(req: http.IncomingMessage): boolean {
   const origin = req.headers.origin ?? req.headers.referer;
   if (!origin) return true; // plain form posts from old clients; the CSRF token still applies
@@ -88,13 +97,15 @@ function sameOrigin(req: http.IncomingMessage): boolean {
 
 /**
  * The all-in-one page: the dashboard, every admin action the RCON API allows, and the automation
- * layer (plugin states with live enable/disable, recent activity). HTTP Basic auth (ADMIN_PASSWORD)
- * with a CSRF token on every form. Put it behind HTTPS or a VPN before exposing it: the password
- * guards a full-access token.
+ * layer (plugin states with live enable/disable, an options editor per plugin that saves to the
+ * plugins file and restarts the plugin in place, recent activity). HTTP Basic auth (ADMIN_PASSWORD
+ * or named ADMIN_USERS) with a CSRF token on every form. Put it behind HTTPS or a VPN before
+ * exposing it: the password guards a full-access token.
  */
 export default definePlugin<Options>({
   name: 'admin-panel',
-  description: 'Password-protected web admin: dashboard, player/server actions, plugin toggles, activity log',
+  description:
+    'Password-protected web admin: dashboard, player/server actions, plugin management (toggle, configure, restart), activity log',
   defaults: { path: '/admin', auditRows: 15, logLines: 40 },
   setup(ctx) {
     if (!ctx.host.httpPort) {
@@ -209,22 +220,39 @@ export default definePlugin<Options>({
         )
         .join('');
 
-      // Automation: every registered plugin, its state, and a toggle. The panel can't switch itself off.
-      const pluginRows = ctx
-        .plugins()
+      // Automation: every registered plugin, its state, a toggle, and an editor for its options. Saving
+      // writes plugins.json and restarts that one plugin. The panel can't switch off or reconfigure itself.
+      const all = ctx.plugins();
+      const pluginRows = all
         .map((p) => {
-          const toggle =
-            p.name === ctx.name
-              ? '<span class="muted">this page</span>'
-              : form(
-                  `<input type="hidden" name="name" value="${esc(p.name)}"><input type="hidden" name="enabled" value="${p.state === 'enabled' ? '0' : '1'}"><button class="${p.state === 'enabled' ? 'soft' : ''}" name="action" value="plugin">${p.state === 'enabled' ? 'Disable' : 'Enable'}</button>`,
-                  'inline',
-                );
+          const self = p.name === ctx.name;
+          const nameField = `<input type="hidden" name="name" value="${esc(p.name)}">`;
+          const toggle = self
+            ? '<span class="muted">this page</span>'
+            : form(
+                `${nameField}<input type="hidden" name="enabled" value="${p.state === 'enabled' ? '0' : '1'}"><button class="${p.state === 'enabled' ? 'soft' : ''}" name="action" value="plugin">${p.state === 'enabled' ? 'Disable' : 'Enable'}</button>` +
+                  (p.state === 'enabled'
+                    ? `<button class="soft" name="action" value="plugin-restart" title="Stop and start with the current options">Restart</button>`
+                    : ''),
+                'inline',
+              );
           const note = p.note ? `<br><span class="muted">${esc(p.note)}</span>` : '';
-          return `<tr><td><b>${esc(p.name)}</b></td><td><span class="pill ${p.state}">${p.state}</span>${note}</td><td>${esc(p.description)}</td><td>${toggle}</td></tr>`;
+          const keys = Object.keys({ ...p.defaults, ...p.options });
+          const custom = Object.keys(overridesOf(p, p.options)).length;
+          let editor: string;
+          if (!keys.length) editor = '<span class="def">no options</span>';
+          else if (self)
+            editor = `<span class="def">${keys.length} option(s) · edit this plugin in plugins.json and restart the service</span>`;
+          else
+            editor = `<details><summary>Configure · ${keys.length} option${keys.length === 1 ? '' : 's'}${custom ? ` · ${custom} customized` : ' · all defaults'}</summary>${form(
+              `${nameField}<div class="fields">${renderOptionFields(p.defaults, p.options)}</div><div class="row"><button name="action" value="plugin-options">Save &amp; apply</button><button class="soft" name="action" value="plugin-reset" onclick="return confirm('Reset ${esc(p.name)} to its defaults?')">Reset to defaults</button><span class="def">saved to ${esc(ctx.host.pluginsFile)}; ${p.state === 'enabled' ? 'the plugin restarts with the new values' : 'applies when the plugin is enabled'}</span></div>`,
+              'opts',
+            )}</details>`;
+          return `<tr><td><b>${esc(p.name)}</b></td><td><span class="pill ${p.state}">${p.state}</span>${note}</td><td>${esc(p.description)}</td><td>${toggle}</td></tr>
+<tr class="opts"><td colspan="4">${editor}</td></tr>`;
         })
         .join('');
-      const enabledCount = ctx.plugins().filter((p) => p.state === 'enabled').length;
+      const enabledCount = all.filter((p) => p.state === 'enabled').length;
       const activity = ctx.recentLog(Number(ctx.options.logLines)).map(formatLogLine).join('\n');
 
       return `<!doctype html><html><head><meta charset="utf-8"><meta name="color-scheme" content="dark"><title>Admin · ${esc(status?.serverName ?? 'WARDOGS')}</title><style>${STYLE}</style></head><body>
@@ -242,7 +270,7 @@ ${form(`<b>Ban by SteamID</b><input type="text" name="steamId" placeholder="7656
 ${canReserve ? form(`<b>Reserved slot</b><input type="text" name="steamId" placeholder="7656119…" required><button name="action" value="reserve">Add</button>`) : ''}
 ${canSponsor ? form(`<b>Sponsor banner</b><input type="text" name="imageUrl" placeholder="https://i.ibb.co/…/banner.png (1024×256)" style="flex:1"><button name="action" value="sponsor">Set</button>`) : ''}
 </div>
-<h2>Automation</h2> <span class="muted">${enabledCount} of ${ctx.plugins().length} plugins running · toggles take effect immediately and are saved to ${esc(ctx.host.pluginsFile)}</span>
+<h2>Automation</h2> <span class="muted">${enabledCount} of ${all.length} plugins running · toggles and option changes take effect immediately and are saved to ${esc(ctx.host.pluginsFile)}</span>
 <table><thead><tr><th>Plugin</th><th>State</th><th>What it does</th><th></th></tr></thead><tbody>${pluginRows}</tbody></table>
 <h2>Recent activity</h2>
 <pre class="log">${activity || '<span class="muted">nothing logged yet</span>'}</pre>
@@ -338,6 +366,29 @@ ${canSponsor ? form(`<b>Sponsor banner</b><input type="text" name="imageUrl" pla
           if (name === ctx.name && !on) return 'Refusing to disable the admin panel from itself.';
           await ctx.setPluginEnabled(name, on);
           return `${on ? 'Enabled' : 'Disabled'} ${name}.`;
+        }
+        case 'plugin-options':
+        case 'plugin-reset':
+        case 'plugin-restart': {
+          const name = (fields.get('name') ?? '').trim();
+          const status = ctx.plugins().find((p) => p.name === name);
+          if (!status) return `Unknown plugin "${name}".`;
+          if (name === ctx.name)
+            return 'The admin panel cannot restart itself; edit it in plugins.json and restart the service.';
+          const applied = status.state === 'enabled' ? ' and restarted it' : '';
+          if (action === 'plugin-restart') {
+            if (status.state !== 'enabled') return `${name} is not running.`;
+            await ctx.restartPlugin(name);
+            return `Restarted ${name}.`;
+          }
+          if (action === 'plugin-reset') {
+            await ctx.resetPluginOptions(name);
+            return `Reset ${name} to its defaults${applied}.`;
+          }
+          const overrides = overridesOf(status, parseOptionFields(fields));
+          await ctx.setPluginOptions(name, overrides);
+          const n = Object.keys(overrides).length;
+          return `Saved ${name} (${n ? `${n} option${n === 1 ? '' : 's'} customized` : 'all defaults'})${applied}.`;
         }
         default:
           return `Unknown action "${action}".`;

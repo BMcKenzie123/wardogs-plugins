@@ -32,6 +32,7 @@ export class PluginHost {
   private logger: Logger;
   private logBuffer: LogBuffer | undefined;
   private caps!: Capabilities;
+  private capsKnown = false;
   private handlers = new Map<EventName, Registered[]>();
   private active = new Map<string, ActivePlugin>();
   private status = new Map<string, PluginStatus>();
@@ -49,7 +50,6 @@ export class PluginHost {
   private lastSeen = new Map<string, Player>();
   private auditKeys = new Set<string>();
   private auditSeeded = false;
-  private capsKnown = false;
 
   constructor(args: {
     rcon: RconClient;
@@ -73,8 +73,7 @@ export class PluginHost {
     // game server is unreachable (or the RCON details are still placeholders). Re-checked on server.up.
     await this.refreshCapabilities(3);
     if (this.stopped) return;
-    for (const [name, plugin] of Object.entries(this.registry))
-      this.status.set(name, { name, description: plugin.description, state: 'disabled' });
+    for (const name of Object.keys(this.registry)) this.status.set(name, this.statusFor(name, 'disabled'));
     for (const [name, file] of Object.entries(this.plugins)) {
       if (file.enabled !== true) continue;
       if (!this.registry[name]) {
@@ -88,6 +87,102 @@ export class PluginHost {
     this.schedulePoll(0); // first poll immediately, then every pollMs
     this.ensureAuditLoop();
   }
+
+  // ---------- plugin state and configuration ----------
+
+  /** Current state of every registered plugin. */
+  listPlugins(): PluginStatus[] {
+    return [...this.status.values()];
+  }
+
+  /** Effective options for a plugin: defaults overlaid with the plugins-file entry (minus `enabled`). */
+  private effectiveOptions(name: string): Record<string, unknown> {
+    const plugin = this.registry[name];
+    const options: Record<string, unknown> = {
+      ...((plugin?.defaults ?? {}) as Record<string, unknown>),
+      ...(this.plugins[name] ?? {}),
+    };
+    delete options.enabled;
+    return options;
+  }
+
+  private statusFor(name: string, state: PluginStatus['state'], note?: string): PluginStatus {
+    const plugin = this.registry[name];
+    return {
+      name,
+      description: plugin?.description ?? '',
+      state,
+      ...(note ? { note } : {}),
+      defaults: { ...((plugin?.defaults ?? {}) as Record<string, unknown>) },
+      options: this.effectiveOptions(name),
+    };
+  }
+
+  /** Switch a plugin on or off while running, and record the choice in the plugins file. */
+  async setPluginEnabled(name: string, enabled: boolean): Promise<void> {
+    if (!this.registry[name]) throw new Error(`unknown plugin "${name}"`);
+    this.plugins[name] = { ...(this.plugins[name] ?? {}), enabled };
+    if (enabled) {
+      if (!this.active.has(name)) await this.activate(name);
+    } else {
+      await this.deactivate(name);
+    }
+    await this.persistPlugin(name);
+  }
+
+  /**
+   * Replace a plugin's configured options (everything except `enabled`), write them to the plugins
+   * file, and restart the plugin in place when it is running so the new values apply immediately.
+   */
+  async setPluginOptions(name: string, options: Record<string, unknown>): Promise<void> {
+    if (!this.registry[name]) throw new Error(`unknown plugin "${name}"`);
+    const enabled = this.plugins[name]?.enabled === true;
+    const clean = { ...options };
+    delete clean.enabled;
+    this.plugins[name] = { enabled, ...clean };
+    await this.persistPlugin(name);
+    await this.reapply(name);
+  }
+
+  /** Back to the plugin's built-in defaults; only `enabled` survives. */
+  async resetPluginOptions(name: string): Promise<void> {
+    if (!this.registry[name]) throw new Error(`unknown plugin "${name}"`);
+    this.plugins[name] = { enabled: this.plugins[name]?.enabled === true };
+    await this.persistPlugin(name);
+    await this.reapply(name);
+  }
+
+  /** Stop and start a running plugin with its current options (no-op when it is not running). */
+  async restartPlugin(name: string): Promise<void> {
+    if (!this.registry[name]) throw new Error(`unknown plugin "${name}"`);
+    await this.reapply(name);
+  }
+
+  private async reapply(name: string): Promise<void> {
+    if (this.active.has(name)) {
+      await this.deactivate(name);
+      await this.activate(name);
+      this.logger.info(`restarted ${name}`);
+    } else {
+      const current = this.status.get(name);
+      this.status.set(name, this.statusFor(name, current?.state ?? 'disabled', current?.note));
+    }
+  }
+
+  /** Rewrite one plugin's entry in the plugins file, leaving every other key (and `$comment`s) alone. */
+  private async persistPlugin(name: string): Promise<void> {
+    const file = this.config.pluginsFile;
+    try {
+      const json = JSON.parse(await fs.readFile(file, 'utf8')) as Record<string, unknown>;
+      json[name] = this.plugins[name] ?? { enabled: false };
+      await fs.writeFile(file, JSON.stringify(json, null, 2) + '\n');
+      this.logger.info(`saved ${name} to ${file}`);
+    } catch (e) {
+      this.logger.warn(`could not persist ${name} to ${file}`, e);
+    }
+  }
+
+  // ---------- capabilities ----------
 
   private async refreshCapabilities(attempts: number): Promise<boolean> {
     for (let i = 0; i < attempts && !this.stopped; i++) {
@@ -117,7 +212,7 @@ export class PluginHost {
       if (!missing.length) continue;
       await this.deactivate(name);
       const note = `missing ${missing.map(([m, p]) => `${m} ${p}`).join(', ')}`;
-      this.status.set(name, { name, description: owned.plugin.description, state: 'skipped', note });
+      this.status.set(name, this.statusFor(name, 'skipped', note));
       this.logger.warn(`stopped ${name}; ${note}`);
     }
     for (const [name, st] of [...this.status])
@@ -125,56 +220,25 @@ export class PluginHost {
         await this.activate(name);
   }
 
-  /** Current state of every registered plugin. */
-  listPlugins(): PluginStatus[] {
-    return [...this.status.values()];
-  }
-
-  /** Switch a plugin on or off while running, and record the choice in the plugins file. */
-  async setPluginEnabled(name: string, enabled: boolean): Promise<void> {
-    if (!this.registry[name]) throw new Error(`unknown plugin "${name}"`);
-    if (enabled) {
-      this.plugins[name] = { ...(this.plugins[name] ?? {}), enabled: true };
-      if (!this.active.has(name)) await this.activate(name);
-    } else {
-      this.plugins[name] = { ...(this.plugins[name] ?? {}), enabled: false };
-      await this.deactivate(name);
-    }
-    await this.persistEnabled(name, enabled);
-  }
-
-  private async persistEnabled(name: string, enabled: boolean): Promise<void> {
-    const file = this.config.pluginsFile;
-    try {
-      const json = JSON.parse(await fs.readFile(file, 'utf8')) as Record<string, Record<string, unknown>>;
-      json[name] = { ...(json[name] ?? {}), enabled };
-      await fs.writeFile(file, JSON.stringify(json, null, 2) + '\n');
-      this.logger.info(`saved ${name}.enabled=${enabled} to ${file}`);
-    } catch (e) {
-      this.logger.warn(`could not persist ${name}.enabled to ${file}`, e);
-    }
-  }
+  // ---------- activation ----------
 
   private async activate(name: string): Promise<void> {
     const plugin = this.registry[name]!;
-    const file = this.plugins[name] ?? {};
     const missing = (plugin.requires ?? []).filter(([m, p]) => !RconClient.hasRoute(this.caps, m, p));
     if (this.capsKnown && missing.length) {
       const note = `missing ${missing.map(([m, p]) => `${m} ${p}`).join(', ')}`;
       this.logger.warn(`skipping ${name}; ${note}`);
-      this.status.set(name, { name, description: plugin.description, state: 'skipped', note });
+      this.status.set(name, this.statusFor(name, 'skipped', note));
       return;
     }
     const store = new Store(path.join(this.config.dataDir, 'state', `${name}.json`), this.logger.child(name));
     await store.load();
     const owned: ActivePlugin = { plugin, handlers: [], cancels: [], stops: [], store };
-    const options = { ...(plugin.defaults ?? {}), ...file };
-    delete (options as { enabled?: unknown }).enabled;
     const ctx: PluginContext = {
       name,
       rcon: this.rcon,
       log: this.logger.child(name),
-      options,
+      options: this.effectiveOptions(name),
       state: store,
       capabilities: this.caps,
       host: this.config,
@@ -200,21 +264,19 @@ export class PluginHost {
       },
       plugins: () => this.listPlugins(),
       setPluginEnabled: (n, on) => this.setPluginEnabled(n, on),
+      setPluginOptions: (n, o) => this.setPluginOptions(n, o),
+      resetPluginOptions: (n) => this.resetPluginOptions(n),
+      restartPlugin: (n) => this.restartPlugin(n),
       recentLog: (limit = 50) => this.logBuffer?.recent(limit) ?? [],
     };
     try {
       await plugin.setup(ctx);
       this.active.set(name, owned);
-      this.status.set(name, { name, description: plugin.description, state: 'enabled' });
+      this.status.set(name, this.statusFor(name, 'enabled'));
       this.logger.info(`enabled ${name}`);
     } catch (e) {
       this.logger.error(`setup failed ${name}`, e);
-      this.status.set(name, {
-        name,
-        description: plugin.description,
-        state: 'failed',
-        note: e instanceof Error ? e.message : String(e),
-      });
+      this.status.set(name, this.statusFor(name, 'failed', e instanceof Error ? e.message : String(e)));
       await this.release(owned);
     }
     if (this.polling) this.ensureAuditLoop();
@@ -230,7 +292,7 @@ export class PluginHost {
       this.logger.error(`teardown failed ${name}`, e);
     }
     this.active.delete(name);
-    this.status.set(name, { name, description: owned.plugin.description, state: 'disabled' });
+    this.status.set(name, this.statusFor(name, 'disabled'));
     this.logger.info(`disabled ${name}`);
   }
 
@@ -293,6 +355,8 @@ export class PluginHost {
       active = false;
     };
   }
+
+  // ---------- polling ----------
 
   /** setTimeout chain (not setInterval) so a slow poll never overlaps the next one. */
   private schedulePoll(delayMs = this.config.pollMs): void {

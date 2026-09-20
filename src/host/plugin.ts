@@ -12,6 +12,10 @@ export interface PluginStatus {
   /** enabled = running; disabled = off in config; skipped = required route missing; failed = setup threw. */
   state: 'enabled' | 'disabled' | 'skipped' | 'failed';
   note?: string;
+  /** The plugin's built-in defaults (used to type the option editor). */
+  defaults: Record<string, unknown>;
+  /** Effective options: defaults overlaid with what the plugins file sets. */
+  options: Record<string, unknown>;
 }
 
 export interface PluginContext<O = Record<string, unknown>> {
@@ -31,10 +35,16 @@ export interface PluginContext<O = Record<string, unknown>> {
   lastPollAt(): number | null;
   /** Register cleanup to run when the host stops or this plugin is disabled (close listeners, clear timers). */
   onStop(fn: () => void | Promise<void>): void;
-  /** Every registered plugin with its current state. */
+  /** Every registered plugin with its current state and options. */
   plugins(): PluginStatus[];
   /** Turn a plugin on or off at runtime; the change is also written to the plugins file when possible. */
   setPluginEnabled(name: string, enabled: boolean): Promise<void>;
+  /** Replace a plugin's configured options, persist them, and restart the plugin if it is running. */
+  setPluginOptions(name: string, options: Record<string, unknown>): Promise<void>;
+  /** Drop every configured option for a plugin (back to defaults), keeping its enabled state. */
+  resetPluginOptions(name: string): Promise<void>;
+  /** Stop and start a running plugin with its current options. */
+  restartPlugin(name: string): Promise<void>;
   /** Most recent host log lines, newest last (empty when the host keeps no buffer). */
   recentLog(limit?: number): string[];
 }

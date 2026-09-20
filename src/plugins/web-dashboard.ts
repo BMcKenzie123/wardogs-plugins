@@ -67,7 +67,16 @@ button.warn{background:#5C0000;border-color:#C1272D}button.warn:hover{background
 .pill{display:inline-block;padding:.05rem .5rem;border-radius:999px;font-size:.75rem;font-weight:600;text-transform:uppercase;letter-spacing:.04em}
 .pill.enabled{background:#2F4858;color:#fff}.pill.disabled{background:#3A3A3A;color:#C7C7C7}.pill.skipped{background:#5C0000;color:#fff}.pill.failed{background:#C1272D;color:#fff}
 pre.log{background:#111;border:1px solid #3A3A3A;border-radius:6px;padding:.6rem .8rem;max-height:22rem;overflow:auto;font:12px/1.45 ui-monospace,Consolas,monospace;color:#C7C7C7;white-space:pre-wrap;margin:0}
-pre.log .warn{color:#C9A227}pre.log .err{color:#C1272D}pre.log .who{color:#fff}`;
+pre.log .warn{color:#C9A227}pre.log .err{color:#C1272D}pre.log .who{color:#fff}
+tr.opts td{padding:0 .5rem .5rem;background:#1F1F1F;border-bottom:1px solid #3A3A3A}tbody tr.opts:hover td{background:#1F1F1F}
+details{margin:.3rem 0 0}summary{cursor:pointer;color:#C9A227;font-size:.85rem;user-select:none}summary:hover{color:#fff}
+form.opts{display:block;margin:.5rem 0 0;padding:.75rem;background:#242424;border:1px solid #3A3A3A;border-radius:6px}
+.fields{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:.6rem .9rem;margin:0 0 .6rem}
+.field{display:flex;flex-direction:column;gap:.2rem;min-width:0}.field.wide{grid-column:1/-1}.field label{color:#fff;font-size:.85rem}
+.field input,.field select,.field textarea{width:100%;box-sizing:border-box}
+textarea{padding:.3rem .4rem;border:1px solid #3A3A3A;border-radius:4px;font:12px/1.45 ui-monospace,Consolas,monospace;background:#1C1C1C;color:#fff;resize:vertical}textarea:focus{outline:none;border-color:#C9A227}
+.def{color:#6E6E6E;font-size:.75rem;font-weight:400;text-transform:none;letter-spacing:0}
+.row{display:flex;flex-wrap:wrap;gap:.4rem;align-items:center}`;
 
 export function statusHeader(view: View): string {
   const snap = view.snapshot();
