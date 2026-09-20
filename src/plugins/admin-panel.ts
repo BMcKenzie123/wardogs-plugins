@@ -342,7 +342,7 @@ ${msg ? `<div class="flash">${esc(msg)}</div>` : ''}
 <h2>Players online</h2>
 <div data-live="players"><table><thead><tr><th>Player</th><th>Faction</th><th>K/D</th><th>Cash</th><th>Ping</th><th>Actions</th></tr></thead><tbody>${playerRows || '<tr><td colspan="6" class="muted">nobody on</td></tr>'}</tbody></table></div>
 <h2>Server</h2>
-<div class="grid">
+<div class="grid" data-live="server">
 ${form(`<b>Broadcast</b><input type="text" name="text" placeholder="message to everyone" style="flex:1"><button name="action" value="broadcast">Send</button>`)}
 ${motdMessages.length ? form(`<b>MOTD</b><select name="text" style="flex:1;min-width:12rem">${motdMessages.map((m, i) => `<option${i === motdNext ? ' selected' : ''}>${esc(m)}</option>`).join('')}</select><button name="action" value="broadcast" title="Broadcast this MOTD line right now">Send now</button>`) : ''}
 ${form(`<b>Change map</b><input type="text" name="map" list="maps" placeholder="map id" required><input type="text" name="experiences" placeholder="experiences (a+b)"><input type="text" name="lighting" list="lightings" placeholder="lighting"><button name="action" value="map">Change now</button>${datalist('maps', maps)}`)}
