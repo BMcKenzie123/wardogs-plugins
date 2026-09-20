@@ -67,8 +67,23 @@ test('admin-panel: auth, csrf, actions, and plugin toggles', async () => {
         body: new URLSearchParams(fields).toString(),
       });
 
+    // A missing or stale token runs nothing and sends the admin back to a fresh page (not a bare 403).
     const noCsrf = await post({ action: 'kick', steamId: 'a' });
-    assert.equal(noCsrf.status, 403);
+    assert.equal(noCsrf.status, 303);
+    assert.match(decodeURIComponent(String(noCsrf.headers.location)), /out of date/);
+    assert.equal(requestsTo(s, 'POST', '/v1/players/a/kick').length, 0);
+
+    // A post from another origin is refused outright even with a valid token.
+    const crossOrigin = await httpRequest(`${base}/admin/action`, {
+      method: 'POST',
+      headers: {
+        ...AUTH,
+        'Content-Type': 'application/x-www-form-urlencoded',
+        Origin: 'https://evil.example',
+      },
+      body: new URLSearchParams({ action: 'kick', steamId: 'a', _csrf: csrf! }).toString(),
+    });
+    assert.equal(crossOrigin.status, 403);
     assert.equal(requestsTo(s, 'POST', '/v1/players/a/kick').length, 0);
 
     const noAuth = await post({ action: 'kick', steamId: 'a', _csrf: csrf! }, {});

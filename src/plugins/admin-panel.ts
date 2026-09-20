@@ -127,7 +127,14 @@ export default definePlugin<Options>({
     const authorized = makeAuthorizer(users, shared);
     const pagePath = ctx.options.path;
     const actionPath = pagePath === '/' ? '/action' : `${pagePath.replace(/\/$/, '')}/action`;
-    const csrf = randomBytes(16).toString('hex');
+    // The CSRF token lives in the plugin's state file so a service restart (deploys, reboots) or a
+    // plugin restart does not invalidate every panel tab that is already open. It is only ever sent
+    // inside authenticated pages, so a stable value is as safe as a per-process one.
+    let csrf = ctx.state.get<string>('csrf', '');
+    if (!/^[a-f0-9]{32}$/.test(csrf)) {
+      csrf = randomBytes(16).toString('hex');
+      ctx.state.set('csrf', csrf);
+    }
     const web = acquireWebServer(ctx.host.httpPort, ctx.log, ctx.host.httpBind ?? '0.0.0.0');
 
     const deny = (res: http.ServerResponse): void => {
@@ -412,9 +419,16 @@ ${canSponsor ? form(`<b>Sponsor banner</b><input type="text" name="imageUrl" pla
         const who = authorized(req);
         if (!who) return deny(res);
         const fields = new URLSearchParams(body);
-        if (fields.get('_csrf') !== csrf || !sameOrigin(req)) {
+        if (!sameOrigin(req)) {
+          ctx.log.warn(`admin ${fields.get('action')} by ${who} rejected: cross-origin post`);
           res.writeHead(403, { 'Content-Type': 'text/plain' });
           res.end('bad request token');
+          return;
+        }
+        if (fields.get('_csrf') !== csrf) {
+          // A tab from before an older build's restart. Nothing runs; send them back to a fresh page.
+          ctx.log.warn(`admin ${fields.get('action')} by ${who} rejected: stale page token`);
+          redirect(res, 'That page was out of date. It has been reloaded; please try the action again.');
           return;
         }
         try {

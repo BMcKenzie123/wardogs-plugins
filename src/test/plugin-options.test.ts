@@ -130,6 +130,29 @@ test('host: setPluginOptions persists and restarts the plugin with the new optio
   }
 });
 
+test('admin-panel: the CSRF token survives a service restart, so open tabs keep working', async () => {
+  const port = await freePort();
+  const s = await startMockServer();
+  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'wdp-'));
+  const auth = { Authorization: `Basic ${Buffer.from('x:hunter2hunter2').toString('base64')}` };
+  const tokenOf = (body: string) => /name="_csrf" value="([a-f0-9]{32})"/.exec(body)?.[1];
+  const over = { httpPort: port, adminPassword: 'hunter2hunter2', dataDir };
+  try {
+    const first = makeHost(s, [adminPanel], { 'admin-panel': { path: '/admin' } }, over).host;
+    await first.start();
+    const a = tokenOf((await httpRequest(`http://127.0.0.1:${port}/admin`, { headers: auth })).body);
+    await first.stop();
+    const second = makeHost(s, [adminPanel], { 'admin-panel': { path: '/admin' } }, over).host;
+    await second.start();
+    const b = tokenOf((await httpRequest(`http://127.0.0.1:${port}/admin`, { headers: auth })).body);
+    await second.stop();
+    assert.ok(a && b, 'both pages carry a token');
+    assert.equal(a, b, 'same token after a restart with the same data dir');
+  } finally {
+    await s.close();
+  }
+});
+
 test('admin-panel: editing options through the form saves and restarts the plugin', async () => {
   const port = await freePort();
   const s = await startMockServer({ state: { players: [player('a')] } });
