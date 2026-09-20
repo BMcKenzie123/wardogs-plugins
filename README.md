@@ -22,7 +22,8 @@ all 35 endpoints, every response field, every config key, known ids, and what th
 Project docs: [CHANGELOG.md](CHANGELOG.md) · [docs/DEV-PLAN.md](docs/DEV-PLAN.md) (what ships next, who owns it) ·
 [docs/BLOCKERS.md](docs/BLOCKERS.md) (what the org must clear, with owners) · [docs/ROLES.md](docs/ROLES.md) ·
 [docs/COPY.md](docs/COPY.md) (every line the server says to players) ·
-[docs/RISK.md](docs/RISK.md) (legal, safety and operational risk register).
+[docs/RISK.md](docs/RISK.md) (legal, safety and operational risk register) ·
+[docs/DISCORD.md](docs/DISCORD.md) (the WARDOGS Discord: the case made to TAW, the build sheet, where each proposal item stands).
 
 ## Quick start
 

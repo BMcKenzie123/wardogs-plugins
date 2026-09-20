@@ -8,6 +8,7 @@ import { parseOptionFields, renderOptionFields } from '../host/options-form.ts';
 import { definePlugin, type PluginStatus } from '../host/plugin.ts';
 import { sponsorUrlProblem } from '../host/sponsor.ts';
 import { SteamClient, type SteamSummary } from '../host/steam.ts';
+import { fill } from '../host/template.ts';
 import {
   describeExpiry,
   durationMs,
@@ -147,7 +148,7 @@ export default definePlugin<Options>({
     steamBaseUrl: '',
     label: '',
     otherPanels: [],
-    appealNote: 'Appeal at discord.gg/taw',
+    appealNote: 'Appeal at {discord}',
     actionLog: true,
   },
   setup(ctx) {
@@ -501,8 +502,10 @@ document.addEventListener('visibilitychange',function(){if(!document.hidden)refr
           const ms = duration ? durationMs(duration) : null;
           if (duration && ms === null)
             return `Ban length "${duration}" is not valid: use 30m, 12h, 3d or 2w, or leave it empty for permanent.`;
-          // The reason is what the banned player sees; make sure it says where to appeal.
-          const note = String(ctx.options.appealNote ?? '').trim();
+          // The reason is what the banned player sees; make sure it says where to appeal. `{discord}`
+          // comes from DISCORD_INVITE; a note that still has an unfilled placeholder is skipped.
+          const filled = fill(String(ctx.options.appealNote ?? '')).trim();
+          const note = /\{[^}]+\}/.test(filled) ? '' : filled;
           const reason = !note
             ? text
             : !text

@@ -17,6 +17,8 @@ export interface HostConfig {
   pluginsFile: string;
   discordWebhookUrl?: string;
   discordBotToken?: string;
+  /** The community's Discord invite (e.g. discord.gg/xxxx); fills `{discord}` in every message template. */
+  discordInvite?: string;
   steamApiKey?: string;
   httpPort?: number;
   /** Address the shared web listener binds to; 127.0.0.1 when a reverse proxy (Caddy) fronts it. */
@@ -68,6 +70,7 @@ export function loadHostConfig(env: NodeJS.ProcessEnv = process.env): HostConfig
     pluginsFile: env.PLUGINS_FILE || './plugins.json',
     discordWebhookUrl: env.DISCORD_WEBHOOK_URL || undefined,
     discordBotToken: env.DISCORD_BOT_TOKEN || undefined,
+    discordInvite: env.DISCORD_INVITE?.trim() || undefined,
     steamApiKey: env.STEAM_API_KEY || undefined,
     httpPort: env.HTTP_PORT ? num(env.HTTP_PORT, 0) || undefined : undefined,
     httpBind: env.HTTP_BIND || undefined,

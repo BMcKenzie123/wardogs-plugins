@@ -36,7 +36,10 @@ test('admin-panel: ban with a length records the expiry; Cleanup lifts expired o
   const { host, dataDir } = makeHost(
     s,
     [adminPanel, tempBans],
-    { 'admin-panel': { path: '/admin' }, 'temp-bans': { checkSeconds: 3600 } },
+    {
+      'admin-panel': { path: '/admin', appealNote: 'Appeal at discord.gg/taw' },
+      'temp-bans': { checkSeconds: 3600 },
+    },
     { httpPort: port, adminPassword: 'hunter2hunter2' },
   );
   const base = `http://127.0.0.1:${port}`;

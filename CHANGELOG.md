@@ -18,6 +18,9 @@ versions follow semver. Dates are the day the change reached the live TAW WARDOG
 - **Appeals and accountability.** Every ban placed from the panel carries the appeal path (admin-panel option
   `appealNote`, default "Appeal at discord.gg/taw") in the reason the banned player sees. Every admin action is
   recorded as one JSON line in `data/admin-actions.jsonl` (time, admin, action, target, text, duration, outcome).
+- **One invite everywhere.** `DISCORD_INVITE` fills `{discord}` in every message template and in the appeal note, so
+  moving to the WARDOGS Discord is one setting per instance. docs/DISCORD.md: the case made to TAW, the build sheet,
+  and where each proposal item stands; dev plan v2.2 is now the Discord layer (feeds, then a role-aware bot).
 - motd: the cadence survives restarts and saves (next line due relative to the last send); every send is logged.
 - Copy: in-game lines say "TAW WARDOGS NA" instead of expanding `{server}` to the full browser title.
 

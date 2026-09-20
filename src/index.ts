@@ -3,10 +3,13 @@ import { LogBuffer, createLogger } from './host/logger.ts';
 import { PluginHost } from './host/host.ts';
 import { registry } from './host/registry.ts';
 import { RconClient } from './rcon/client.ts';
+import { setTemplateGlobals } from './host/template.ts';
 
 loadEnv();
 
 const config = loadHostConfig();
+// `{discord}` in any message template = DISCORD_INVITE, so the invite lives in one place.
+setTemplateGlobals({ discord: config.discordInvite });
 const logBuffer = new LogBuffer(400); // recent activity for the admin panel
 const logger = createLogger(config.logLevel, 'host', (line) => logBuffer.push(line));
 

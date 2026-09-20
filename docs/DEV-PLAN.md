@@ -34,19 +34,33 @@ Definition of done for v2.1: a moderator account cannot permanently ban or chang
 cannot post anything, five wrong passwords lock an IP for ten minutes, and a restore from backup has been
 done once on a scratch box.
 
-## v2.2: growth (owner: server lead + recruiting lead)
+## v2.2: the Discord layer (owner: server lead + recruiting lead; bot work: a plugin developer)
 
-Depends on blockers #1, #2, #4 being cleared. No code beyond configuration unless noted.
+The platoon's Discord case ([DISCORD.md](DISCORD.md)) is the spec. Two halves.
 
-- Discord relay, downtime alerts, fill-server rally, weekly recap, prime-time posts: enable and tune.
-- event-announcer for the weekly slot; MOTD line for it.
+**Half one, no code: the server and the feeds.** Depends on blockers #1, #2, #4, #15.
+
+- Build the WARDOGS Discord to the build sheet; `DISCORD_INVITE` on both instances; two feed webhooks.
+- Enable and tune per server: discord-relay, downtime-alert, fill-server (rally with a role mention),
+  admin-alerts into `#admin-feed`, weekly-recap, prime-time, event-announcer for the weekly slot.
 - first-timer (whisper), match-mvp, playtime-ranks: enable with the approved copy.
-- **Discord slash commands** (new plugin, needs a bot): `/status`, `/players`, `/broadcast` (moderator+), so
-  admins act from Discord without opening the panel.
-- **Fleet view.** One page listing every instance (NA, EU, …): up/down, players, map, last MOTD, with links
-  into each panel. Today the panels link to each other; this adds the overview.
-- **Recruiting funnel numbers** in the panel: first-timers per week, third-visit conversions, pitch DMs sent,
-  regulars count. All derivable from `data/stats` and `data/state`.
+
+**Half two, one new plugin: `discord-bot`.** Depends on #3 (bot token). Zero dependencies: Discord's
+gateway is a WebSocket and Node 22 has one built in; interactions arrive over the gateway, so no public
+endpoint is needed.
+
+| Item                                                                                                                                                                                                                                                                                | Notes                                                                                                                                                                                      |
+| ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Read-only commands for anyone:** `/status`, `/players`, `/map`, `/next`, `/queue`.                                                                                                                                                                                                | Answered from the host's last snapshot; no RCON call per command.                                                                                                                          |
+| **Permissions from TAW roles.** A `roles` option maps Discord role ids to `viewer` / `moderator` / `admin` / `owner`. Moderator: `/kick`, `/tempban`, `/dm`, `/broadcast`, `/motd`. Admin: `/ban`, `/unban`, `/map`, `/lighting`. Owner: plugin config.                             | A role change on Discord is the permission change; nobody holds a credential. Every command is written to `data/admin-actions.jsonl` under the Discord user, the same file the panel uses. |
+| **Member verification.** `/link <steamId>` creates a pending link; an admin confirms with `/verify`, or the player proves ownership by putting a one-time token in their Steam profile name for a minute (the Steam lookup already exists). Linked pairs live in `data/links.json`. | The API cannot read chat, so an in-game code is not an option.                                                                                                                             |
+| **Reserved slots by role** on top of verification, once the server build exposes `POST /v1/reserved-slots` (blocker #5).                                                                                                                                                            | Until then: the list of who should have one, applied by hand in the official panel.                                                                                                        |
+| **Alerts with actions.** A ban or kick posted to `#admin-feed` carries the reason and the admin; an appeal in `#appeals` can be answered with `/unban` from the same thread.                                                                                                        |                                                                                                                                                                                            |
+| **Fleet view.** `/status` covers every instance (NA, EU); a pinned message the bot keeps updated with both servers' state.                                                                                                                                                          | The panels already link to each other; this is the overview.                                                                                                                               |
+
+Definition of done for v2.2: a TAW member with the moderator role can kick and temp-ban from Discord and
+the action appears in the admin log under their Discord name; a member without the role gets "not
+allowed"; the invite in-game is the WARDOGS Discord; the rally fires when population drops.
 
 ## v2.3: quality of life
 
