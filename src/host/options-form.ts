@@ -76,15 +76,20 @@ const esc = (value: unknown): string =>
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;');
 
-/** HTML fields for every option, typed by `defaults` (falling back to the current value's type). */
+/**
+ * HTML fields for every option, typed by `defaults` (falling back to the current value's type).
+ * Keys listed in `choices` render as a dropdown of those values (plus the current one if it is off-list).
+ */
 export function renderOptionFields(
   defaults: Record<string, unknown>,
   options: Record<string, unknown>,
+  choices: Record<string, readonly string[]> = {},
 ): string {
   const keys = [...new Set([...Object.keys(defaults), ...Object.keys(options)])];
   return keys
     .map((key) => {
-      const kind = kindOf(key in defaults ? defaults[key] : options[key]);
+      const list = choices[key] ?? [];
+      const kind = list.length ? 'str' : kindOf(key in defaults ? defaults[key] : options[key]);
       const value = encodeValue(kind, options[key]);
       const def = encodeValue(kind, defaults[key]);
       const hint =
@@ -93,7 +98,11 @@ export function renderOptionFields(
           : '';
       const wide = kind === 'lines' || kind === 'json' || value.length > 70 || value.includes('\n');
       let input: string;
-      if (kind === 'bool')
+      if (list.length)
+        input = `<select name="o:${esc(key)}">${(list.includes(value) ? list : [value, ...list])
+          .map((v) => `<option value="${esc(v)}"${v === value ? ' selected' : ''}>${esc(v)}</option>`)
+          .join('')}</select>`;
+      else if (kind === 'bool')
         input = `<select name="o:${esc(key)}"><option value="true"${value === 'true' ? ' selected' : ''}>true</option><option value="false"${value === 'false' ? ' selected' : ''}>false</option></select>`;
       else if (kind === 'num')
         input = `<input type="number" step="any" name="o:${esc(key)}" value="${esc(value)}">`;

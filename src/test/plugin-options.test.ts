@@ -310,3 +310,14 @@ test('host: when plugins.json cannot be written the change still applies and the
     await s.close();
   }
 });
+
+test('options-form: choices render as a dropdown with the current value selected', () => {
+  const html = renderOptionFields({ mode: 'broadcast' }, { mode: 'dm' }, { mode: ['broadcast', 'dm'] });
+  assert.match(
+    html,
+    /<select name="o:mode"><option value="broadcast">broadcast<\/option><option value="dm" selected>dm<\/option><\/select>/,
+  );
+  assert.match(html, /name="k:mode" value="str"/);
+  const odd = renderOptionFields({ mode: 'broadcast' }, { mode: 'whisper' }, { mode: ['broadcast', 'dm'] });
+  assert.match(odd, /<option value="whisper" selected>/, 'an off-list value stays selectable');
+});

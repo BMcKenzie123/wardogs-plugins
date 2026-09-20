@@ -389,3 +389,72 @@ test('admin-alerts: relays matching audit events to Discord', async () => {
     await hook.close();
   }
 });
+
+test('first-timer (dm): whispers the newcomer after delayMs instead of broadcasting', async () => {
+  const s = await startMockServer();
+  const { host } = makeHost(s, [firstTimer], {
+    'first-timer': { mode: 'dm', delayMs: 60, message: 'psst {name}, welcome to {server}' },
+  });
+  try {
+    await host.start();
+    await waitFor(() => requestsTo(s, 'GET', '/v1/players').length >= 1);
+    s.state.players.push(player('a'));
+    await waitFor(() => requestsTo(s, 'POST', '/v1/players/a/message').length === 1, 2000, 'dm');
+    assert.deepEqual(bodyOf(requestsTo(s, 'POST', '/v1/players/a/message')[0]), {
+      message: 'psst Pa, welcome to Mock Server',
+    });
+    assert.equal(requestsTo(s, 'POST', '/v1/broadcast').length, 0, 'nothing shouted');
+  } finally {
+    await host.stop();
+    await s.close();
+  }
+});
+
+test('kill-streak (dm): the streak goes to the player alone', async () => {
+  const s = await startMockServer({ state: { players: [player('a'), player('b')] } });
+  const { host } = makeHost(s, [killStreak], {
+    'kill-streak': { mode: 'whisper', thresholds: [2], message: 'nice, {kills} in a row' },
+  });
+  try {
+    await host.start();
+    await waitFor(() => requestsTo(s, 'GET', '/v1/players').length >= 2);
+    s.state.players[0]!.kills = 2;
+    await waitFor(() => requestsTo(s, 'POST', '/v1/players/a/message').length === 1, 2000, 'dm');
+    assert.deepEqual(bodyOf(requestsTo(s, 'POST', '/v1/players/a/message')[0]), {
+      message: 'nice, 2 in a row',
+    });
+    assert.equal(requestsTo(s, 'POST', '/v1/broadcast').length, 0);
+  } finally {
+    await host.stop();
+    await s.close();
+  }
+});
+
+test('playtime-ranks (dm): a rank crossed at leave time is whispered on the next join', async () => {
+  const s = await startMockServer();
+  const { host } = makeHost(s, [playtimeRanks], {
+    'playtime-ranks': {
+      mode: 'dm',
+      ranks: [{ hours: 0.00001, title: 'Regular' }],
+      announce: 'you are now {title}',
+    },
+  });
+  try {
+    await host.start();
+    await waitFor(() => requestsTo(s, 'GET', '/v1/players').length >= 1);
+    s.state.players.push(player('a'));
+    await sleep(120);
+    s.state.players = [];
+    await sleep(150);
+    assert.equal(requestsTo(s, 'POST', '/v1/players/a/message').length, 0, 'gone: nobody to whisper to');
+    assert.equal(requestsTo(s, 'POST', '/v1/broadcast').length, 0);
+    s.state.players.push(player('a'));
+    await waitFor(() => requestsTo(s, 'POST', '/v1/players/a/message').length === 1, 2000, 'dm on return');
+    assert.deepEqual(bodyOf(requestsTo(s, 'POST', '/v1/players/a/message')[0]), {
+      message: 'you are now Regular',
+    });
+  } finally {
+    await host.stop();
+    await s.close();
+  }
+});

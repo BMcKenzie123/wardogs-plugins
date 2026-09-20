@@ -263,7 +263,7 @@ export default definePlugin<Options>({
             editor = `<span class="def">${keys.length} option(s) · edit this plugin in plugins.json and restart the service</span>`;
           else
             editor = `<details data-plugin="${esc(p.name)}"><summary>Configure · ${keys.length} option${keys.length === 1 ? '' : 's'}${custom ? ` · ${custom} customized` : ' · all defaults'}</summary>${form(
-              `${nameField}<div class="fields">${renderOptionFields(p.defaults, p.options)}</div><div class="row"><button name="action" value="plugin-options">Save &amp; apply</button><button class="soft" name="action" value="plugin-reset" onclick="return confirm('Reset ${esc(p.name)} to its defaults?')">Reset to defaults</button><span class="def">saved to ${esc(ctx.host.pluginsFile)}; ${p.state === 'enabled' ? 'the plugin restarts with the new values' : 'applies when the plugin is enabled'}</span></div>`,
+              `${nameField}<div class="fields">${renderOptionFields(p.defaults, p.options, p.choices)}</div><div class="row"><button name="action" value="plugin-options">Save &amp; apply</button><button class="soft" name="action" value="plugin-reset" onclick="return confirm('Reset ${esc(p.name)} to its defaults?')">Reset to defaults</button><span class="def">saved to ${esc(ctx.host.pluginsFile)}; ${p.state === 'enabled' ? 'the plugin restarts with the new values' : 'applies when the plugin is enabled'}</span></div>`,
               'opts',
             )}</details>`;
           return `<tr><td><b>${esc(p.name)}</b></td><td><span class="pill ${p.state}">${p.state}</span>${note}</td><td>${esc(p.description)}</td><td>${toggle}</td></tr>

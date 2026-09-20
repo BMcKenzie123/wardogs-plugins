@@ -115,6 +115,11 @@ export class PluginHost {
       ...(note ? { note } : {}),
       defaults: { ...((plugin?.defaults ?? {}) as Record<string, unknown>) },
       options: this.effectiveOptions(name),
+      choices: Object.fromEntries(
+        Object.entries((plugin?.choices ?? {}) as Record<string, readonly string[] | undefined>)
+          .filter(([, v]) => Array.isArray(v))
+          .map(([k, v]) => [k, [...(v as readonly string[])]]),
+      ),
     };
   }
 

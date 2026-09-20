@@ -16,6 +16,8 @@ export interface PluginStatus {
   defaults: Record<string, unknown>;
   /** Effective options: defaults overlaid with what the plugins file sets. */
   options: Record<string, unknown>;
+  /** Allowed values for string options that have a fixed set (rendered as a dropdown). */
+  choices: Record<string, string[]>;
 }
 
 export interface PluginContext<O = Record<string, unknown>> {
@@ -53,6 +55,8 @@ export interface Plugin<O = Record<string, unknown>> {
   name: string;
   description: string;
   defaults?: Partial<O>;
+  /** Fixed value sets for string options (e.g. `{ mode: ['broadcast', 'dm'] }`); the panel shows a dropdown. */
+  choices?: Partial<Record<keyof O & string, readonly string[]>>;
   requires?: Array<[method: string, pathTemplate: string]>;
   setup(ctx: PluginContext<O>): void | Promise<void>;
   teardown?(): void | Promise<void>;

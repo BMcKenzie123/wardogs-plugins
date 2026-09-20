@@ -1,4 +1,5 @@
 import { definePlugin } from '../host/plugin.ts';
+import { SAY_MODES } from '../host/say.ts';
 import { fill } from '../host/template.ts';
 
 interface Options {
@@ -22,6 +23,7 @@ interface Options {
 export default definePlugin<Options>({
   name: 'seed-thanks',
   description: 'Thanks players who seed the server while it is under-populated',
+  choices: { mode: SAY_MODES },
   defaults: {
     belowPlayers: 24,
     mode: 'dm',
