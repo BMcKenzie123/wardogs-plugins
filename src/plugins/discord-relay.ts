@@ -1,3 +1,4 @@
+import { isNoiseAudit } from '../host/audit.ts';
 import { definePlugin } from '../host/plugin.ts';
 import { postJson } from '../host/http.ts';
 import type { EventName, Snapshot } from '../host/events.ts';
@@ -165,13 +166,14 @@ export default definePlugin<Options>({
         ),
       );
     if (wanted.has('audit.entry'))
-      ctx.on('audit.entry', ({ entry }) =>
-        post(
+      ctx.on('audit.entry', ({ entry }) => {
+        if (isNoiseAudit(entry)) return; // never relay this host's own polling to Discord
+        return post(
           `Audit: ${entry.event}`,
           `${entry.detail}\nby ${entry.peer} · ${entry.timestampUtc}`,
           COLORS.orange,
-        ),
-      );
+        );
+      });
 
     const minutes = Number(ctx.options.scoreEveryMinutes);
     if (minutes > 0)

@@ -30,7 +30,7 @@ $HOST {
 		Strict-Transport-Security "max-age=31536000"
 		X-Frame-Options DENY
 		X-Content-Type-Options nosniff
-		Referrer-Policy no-referrer
+		Referrer-Policy same-origin
 	}
 	@allowed path /admin /admin/* /healthz
 	handle @allowed {

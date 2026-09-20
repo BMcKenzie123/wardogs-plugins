@@ -86,6 +86,17 @@ test('admin-panel: auth, csrf, actions, and plugin toggles', async () => {
     assert.equal(crossOrigin.status, 403);
     assert.equal(requestsTo(s, 'POST', '/v1/players/a/kick').length, 0);
 
+    // Browsers send "Origin: null" for same-site form posts under Referrer-Policy: no-referrer (what a
+    // hardened reverse proxy adds). That is unknown, not foreign: the token decides.
+    const nullOrigin = await httpRequest(`${base}/admin/action`, {
+      method: 'POST',
+      headers: { ...AUTH, 'Content-Type': 'application/x-www-form-urlencoded', Origin: 'null' },
+      body: new URLSearchParams({ action: 'dm', steamId: 'a', text: 'via proxy', _csrf: csrf! }).toString(),
+    });
+    assert.equal(nullOrigin.status, 303);
+    assert.match(String(nullOrigin.headers.location), /msg=DM%20sent/);
+    assert.equal(bodyOf(requestsTo(s, 'POST', '/v1/players/a/message').at(-1)).message, 'via proxy');
+
     const noAuth = await post({ action: 'kick', steamId: 'a', _csrf: csrf! }, {});
     assert.equal(noAuth.status, 401);
 

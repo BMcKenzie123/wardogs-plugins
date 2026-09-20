@@ -16,9 +16,12 @@ interface Options {
       return;
     }
     ctx.on('audit.entry', async ({ entry }) => {
+      // Actions arrive as event "HTTP" with the route in the detail ("POST /v1/players/…/kick -> 200"),
+      // so match the filter words against both.
+      const text = `${entry.event} ${entry.detail}`.toLowerCase();
       if (
         ctx.options.ignorePeers.includes(entry.peer) ||
-        !ctx.options.events.some((event) => entry.event.toLowerCase().includes(event.toLowerCase()))
+        !ctx.options.events.some((event) => text.includes(event.toLowerCase()))
       )
         return;
       await postJson(url, { content: `**${entry.event}** by ${entry.peer}: ${entry.detail}` });

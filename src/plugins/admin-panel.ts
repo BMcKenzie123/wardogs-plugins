@@ -85,14 +85,25 @@ export function overridesOf(status: PluginStatus, options: Record<string, unknow
   return out;
 }
 
-function sameOrigin(req: http.IncomingMessage): boolean {
-  const origin = req.headers.origin ?? req.headers.referer;
-  if (!origin) return true; // plain form posts from old clients; the CSRF token still applies
+/**
+ * Defence in depth next to the CSRF token: a post that names a *different* origin is refused. A post
+ * with no usable origin is allowed on the strength of the token alone. Browsers send `Origin: null`
+ * (and no Referer) for same-site form posts when the page carries `Referrer-Policy: no-referrer`, so
+ * `null` counts as unknown, not as foreign. Behind a proxy the original host arrives as X-Forwarded-Host.
+ */
+export function sameOrigin(headers: http.IncomingHttpHeaders): boolean {
+  const claimed = [headers.origin, headers.referer].find((h) => h && h !== 'null');
+  if (!claimed) return true;
+  let host: string;
   try {
-    return new URL(origin).host === req.headers.host;
+    host = new URL(claimed).host;
   } catch {
     return false;
   }
+  const forwarded = String(headers['x-forwarded-host'] ?? '')
+    .split(',')[0]!
+    .trim();
+  return host === headers.host || (forwarded !== '' && host === forwarded);
 }
 
 /**
@@ -419,7 +430,7 @@ ${canSponsor ? form(`<b>Sponsor banner</b><input type="text" name="imageUrl" pla
         const who = authorized(req);
         if (!who) return deny(res);
         const fields = new URLSearchParams(body);
-        if (!sameOrigin(req)) {
+        if (!sameOrigin(req.headers)) {
           ctx.log.warn(`admin ${fields.get('action')} by ${who} rejected: cross-origin post`);
           res.writeHead(403, { 'Content-Type': 'text/plain' });
           res.end('bad request token');
