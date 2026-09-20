@@ -7,14 +7,14 @@ import fs from 'node:fs/promises';
 import { loadEnv, loadHostConfig, loadRconConfig } from './config.ts';
 import { RconClient, RconConflictError, RconError } from './rcon/client.ts';
 import { sponsorUrlProblem } from './host/sponsor.ts';
+import { durationMs, readTempBans, recordTempBan } from './host/temp-bans.ts';
 import { generatePassword, hashPassword } from './host/admins.ts';
 import type { FactionScore, MapSelection, Status } from './rcon/types.ts';
 
 export function parseDuration(value: string): number {
-  const match = /^(\d+)(m|h|d|w)$/.exec(value.trim());
-  if (!match) throw new UsageError('duration must be like 30m, 12h, 3d, or 2w');
-  const units: Record<string, number> = { m: 60_000, h: 3_600_000, d: 86_400_000, w: 604_800_000 };
-  return Number(match[1]) * units[match[2]!]!;
+  const ms = durationMs(value);
+  if (ms === null) throw new UsageError('duration must be like 30m, 12h, 3d, or 2w');
+  return ms;
 }
 
 const HELP = `wd — WARDOGS RCON command line
@@ -262,29 +262,13 @@ async function run(
       const expiresAt = new Date(Date.now() + parseDuration(need(a2, 'duration'))).toISOString();
       const reason = tail(3);
       await c.ban(steamId, reason || undefined);
-      const file = `${loadHostConfig().dataDir}/temp-bans.json`;
-      let bans: Array<{ steamId: string; reason: string; expiresAt: string }> = [];
-      try {
-        bans = JSON.parse(await fs.readFile(file, 'utf8')) as typeof bans;
-      } catch {
-        // First temporary ban.
-      }
-      bans = bans.filter((ban) => ban.steamId !== steamId);
-      bans.push({ steamId, reason, expiresAt });
-      await fs.mkdir(loadHostConfig().dataDir, { recursive: true });
-      await fs.writeFile(file, JSON.stringify(bans, null, 2));
+      await recordTempBan(loadHostConfig().dataDir, { steamId, reason, expiresAt, by: 'wd' });
       print({ steamId, reason, expiresAt });
       return;
     }
-    case 'tempbans': {
-      const file = `${loadHostConfig().dataDir}/temp-bans.json`;
-      try {
-        print(JSON.parse(await fs.readFile(file, 'utf8')));
-      } catch {
-        print([]);
-      }
+    case 'tempbans':
+      print(await readTempBans(loadHostConfig().dataDir));
       return;
-    }
     case 'slot':
       if (a1 === 'add') print(await c.addReservedSlot(need(a2, 'steamId')));
       else if (a1 === 'rm' || a1 === 'remove') print(await c.removeReservedSlot(need(a2, 'steamId')));

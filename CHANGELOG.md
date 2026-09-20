@@ -12,6 +12,9 @@ versions follow semver. Dates are the day the change reached the live TAW WARDOG
   Caddy routes for `/<name>/admin` and `/<name>/healthz`. `deploy/set-secret.sh <KEY> <name>` targets an
   instance; `install.sh` restarts every instance after a rebuild. The EU server runs this way.
 - **Server switcher** in the panel: admin-panel options `label` and `otherPanels` link the panels to each other.
+- **Temp bans in the panel.** Every Ban form takes a length (30m, 12h, 3d, 2w; empty = permanent); the Bans table
+  shows when each lifts and who placed it; **Cleanup** lifts every expired temp ban on the spot. Unban drops the
+  record. Shared `src/host/temp-bans.ts` backs the panel, `wd tempban` and the temp-bans plugin.
 - motd: the cadence survives restarts and saves (next line due relative to the last send); every send is logged.
 - Copy: in-game lines say "TAW WARDOGS NA" instead of expanding `{server}` to the full browser title.
 

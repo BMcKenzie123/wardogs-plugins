@@ -7,6 +7,14 @@ import { parseOptionFields, renderOptionFields } from '../host/options-form.ts';
 import { definePlugin, type PluginStatus } from '../host/plugin.ts';
 import { sponsorUrlProblem } from '../host/sponsor.ts';
 import { SteamClient, type SteamSummary } from '../host/steam.ts';
+import {
+  describeExpiry,
+  durationMs,
+  forgetTempBan,
+  readTempBans,
+  recordTempBan,
+  sweepExpiredTempBans,
+} from '../host/temp-bans.ts';
 import { RconError } from '../rcon/client.ts';
 import type { Ban } from '../rcon/types.ts';
 import {
@@ -257,13 +265,24 @@ export default definePlugin<Options>({
           : `<span class="tag">${esc(id)}</span>`;
       };
 
+      // Temp bans: the server holds the ban; data/temp-bans.json says when to lift it.
+      const temp = new Map((await readTempBans(ctx.host.dataDir)).map((b) => [b.steamId, b]));
+      const expired = [...temp.values()].filter((b) => Date.parse(b.expiresAt) <= Date.now()).length;
+      const sweeper = ctx.plugins().find((p) => p.name === 'temp-bans')?.state === 'enabled';
+      const cleanup = form(
+        `<button class="soft" name="action" value="bans-cleanup" title="Lift every expired temp ban right now">Cleanup</button><span class="def">${temp.size} temp ban${temp.size === 1 ? '' : 's'}${expired ? `, ${expired} expired` : ''}${sweeper ? '' : ' · temp-bans plugin is off: nothing lifts automatically'}</span>`,
+        'inline',
+      );
       if (bans)
         bansHtml = bans.length
-          ? `<table><thead><tr><th>Player</th><th>When</th><th>By</th><th>Reason</th><th></th></tr></thead><tbody>${bans
-              .map(
-                (ban) =>
-                  `<tr><td>${identity(ban.steamId)}</td><td>${esc(ban.bannedAtUtc.slice(0, 16).replace('T', ' '))}</td><td>${esc(ban.bannedBy)}</td><td>${esc(ban.reason)}</td><td>${form(`<input type="hidden" name="steamId" value="${esc(ban.steamId)}"><button class="soft" name="action" value="unban">Unban</button>`, 'inline')}</td></tr>`,
-              )
+          ? `<table><thead><tr><th>Player</th><th>When</th><th>By</th><th>Reason</th><th>Until</th><th></th></tr></thead><tbody>${bans
+              .map((ban) => {
+                const t = temp.get(ban.steamId);
+                const until = t
+                  ? `${esc(describeExpiry(t.expiresAt))}${t.by ? ` <span class="def">by ${esc(t.by)}</span>` : ''}`
+                  : '<span class="muted">permanent</span>';
+                return `<tr><td>${identity(ban.steamId)}</td><td>${esc(ban.bannedAtUtc.slice(0, 16).replace('T', ' '))}</td><td>${esc(ban.bannedBy)}</td><td>${esc(ban.reason)}</td><td>${until}</td><td>${form(`<input type="hidden" name="steamId" value="${esc(ban.steamId)}"><button class="soft" name="action" value="unban">Unban</button>`, 'inline')}</td></tr>`;
+              })
               .join('')}</tbody></table>`
           : '<p class="muted">no bans</p>';
       if (slots)
@@ -288,7 +307,7 @@ export default definePlugin<Options>({
           ) => `<tr><td>${avatar(p.steamId)}<b>${esc(p.name)}</b><br><span class="tag">${esc(p.steamId)}</span>${profiles.get(p.steamId)?.name && profiles.get(p.steamId)!.name !== p.name ? ` <span class="def">Steam: ${esc(profiles.get(p.steamId)!.name)}</span>` : ''}</td><td>${esc(p.faction)}</td><td>${p.kills}/${p.deaths}</td><td>${p.cash}</td><td>${p.pingMs}</td>
 <td>${form(
             `<input type="hidden" name="steamId" value="${esc(p.steamId)}"><input type="text" name="text" placeholder="message / reason">
-<button name="action" value="dm">DM</button><button class="soft" name="action" value="kick">Kick</button><button class="soft" name="action" value="kill">Kill</button><button class="warn" name="action" value="ban">Ban</button>` +
+<button name="action" value="dm">DM</button><button class="soft" name="action" value="kick">Kick</button><button class="soft" name="action" value="kill">Kill</button><input type="text" name="duration" placeholder="3d" title="ban length: 30m, 12h, 3d, 2w; empty = permanent" style="min-width:3.5rem;width:3.5rem"><button class="warn" name="action" value="ban">Ban</button>` +
               (canFaction
                 ? `<select name="faction">${factions.map((f) => `<option${f === p.faction ? ' selected' : ''}>${esc(f)}</option>`).join('')}</select><button class="soft" name="action" value="faction">Move</button>`
                 : ''),
@@ -365,7 +384,7 @@ ${motdMessages.length ? form(`<b>MOTD</b><select name="text" style="flex:1;min-w
 ${form(`<b>Change map</b><input type="text" name="map" list="maps" placeholder="map id" required><input type="text" name="experiences" placeholder="experiences (a+b)"><input type="text" name="lighting" list="lightings" placeholder="lighting"><button name="action" value="map">Change now</button>${datalist('maps', maps)}`)}
 ${form(`<b>Lighting</b><input type="text" name="lighting" list="lightings" placeholder="preset" required><button name="action" value="lighting">Set</button>${datalist('lightings', lightings)}`)}
 ${form(`<b>Match</b><button class="soft" name="action" value="restart">Restart</button><button class="warn" name="action" value="end" onclick="return confirm('End the current match?')">End match</button>`)}
-${form(`<b>Ban by SteamID</b><input type="text" name="steamId" placeholder="7656119…" required><input type="text" name="text" placeholder="reason"><button class="warn" name="action" value="ban">Ban</button>`)}
+${form(`<b>Ban by SteamID</b><input type="text" name="steamId" placeholder="7656119…" required><input type="text" name="text" placeholder="reason"><input type="text" name="duration" placeholder="length: 3d (empty = permanent)" title="30m, 12h, 3d, 2w"><button class="warn" name="action" value="ban">Ban</button>`)}
 ${canReserve ? form(`<b>Reserved slot</b><input type="text" name="steamId" placeholder="7656119…" required><button name="action" value="reserve">Add</button>`) : ''}
 ${canSponsor ? form(`<b>Sponsor banner</b><input type="text" name="imageUrl" placeholder="https://i.ibb.co/…/banner.png (1024×256)" style="flex:1"><button name="action" value="sponsor">Set</button>`) : ''}
 </div>
@@ -373,7 +392,7 @@ ${canSponsor ? form(`<b>Sponsor banner</b><input type="text" name="imageUrl" pla
 <div data-live="automation"><table><thead><tr><th>Plugin</th><th>State</th><th>What it does</th><th></th></tr></thead><tbody>${pluginRows}</tbody></table></div>
 <h2>Recent activity</h2>
 <div data-live="activity"><pre class="log">${activity || '<span class="muted">nothing logged yet</span>'}</pre></div>
-<div class="grid" data-live="lists"><div><h2>Bans</h2>${bansHtml}</div><div><h2>Reserved slots</h2>${slotsHtml}</div></div>
+<div class="grid" data-live="lists"><div><h2>Bans</h2> ${cleanup}${bansHtml}</div><div><h2>Reserved slots</h2>${slotsHtml}</div></div>
 <h2>Audit log</h2><div data-live="audit">${auditHtml}</div>
 <div class="grid" data-live="stats"><div><h2>All-time leaderboard</h2>${await leaderboardSection(ctx)}</div><div><h2>Regulars</h2>${await regularsSection(ctx)}</div></div>
 <h2>Average players by hour (last 24 h, ${esc(Intl.DateTimeFormat().resolvedOptions().timeZone)})</h2><div data-live="hourly">${await hourlySection(ctx)}</div>
@@ -416,7 +435,7 @@ document.addEventListener('visibilitychange',function(){if(!document.hidden)refr
 </body></html>`;
     };
 
-    const act = async (fields: URLSearchParams): Promise<string> => {
+    const act = async (fields: URLSearchParams, admin: string): Promise<string> => {
       const action = fields.get('action') ?? '';
       const steamId = (fields.get('steamId') ?? '').trim();
       const text = (fields.get('text') ?? '').trim();
@@ -438,12 +457,29 @@ document.addEventListener('visibilitychange',function(){if(!document.hidden)refr
         case 'kill':
           await ctx.rcon.kill(steamId);
           return `Killed${who}.`;
-        case 'ban':
+        case 'ban': {
+          const duration = (fields.get('duration') ?? '').trim();
+          const ms = duration ? durationMs(duration) : null;
+          if (duration && ms === null)
+            return `Ban length "${duration}" is not valid: use 30m, 12h, 3d or 2w, or leave it empty for permanent.`;
           await ctx.rcon.ban(steamId, text || undefined);
-          return `Banned${who}.`;
+          if (ms === null) {
+            await forgetTempBan(ctx.host.dataDir, steamId);
+            return `Banned${who} permanently.`;
+          }
+          const expiresAt = new Date(Date.now() + ms).toISOString();
+          await recordTempBan(ctx.host.dataDir, { steamId, reason: text, expiresAt, by: admin });
+          return `Banned${who} for ${duration}; lifts ${expiresAt.slice(0, 16).replace('T', ' ')} UTC.`;
+        }
         case 'unban':
           await ctx.rcon.unban(steamId);
+          await forgetTempBan(ctx.host.dataDir, steamId);
           return `Unbanned ${steamId}.`;
+        case 'bans-cleanup': {
+          const lifted = await sweepExpiredTempBans(ctx.host.dataDir, ctx.rcon, ctx.log);
+          const auto = ctx.plugins().find((p) => p.name === 'temp-bans')?.state === 'enabled';
+          return `${lifted.length ? `Lifted ${lifted.length} expired temp ban${lifted.length === 1 ? '' : 's'}: ${lifted.join(', ')}.` : 'No expired temp bans to lift.'}${auto ? '' : ' Enable the temp-bans plugin for this to happen automatically.'}`;
+        }
         case 'faction': {
           const faction = (fields.get('faction') ?? '').trim();
           await ctx.rcon.setFaction(steamId, faction);
@@ -568,7 +604,7 @@ document.addEventListener('visibilitychange',function(){if(!document.hidden)refr
           return;
         }
         try {
-          const result = await act(fields);
+          const result = await act(fields, who);
           ctx.log.info(`admin ${fields.get('action')} by ${who} → ${result}`);
           redirect(res, result);
         } catch (e) {

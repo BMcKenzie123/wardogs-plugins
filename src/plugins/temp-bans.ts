@@ -1,37 +1,27 @@
-import fs from 'node:fs/promises';
-import path from 'node:path';
 import { definePlugin } from '../host/plugin.ts';
+import { sweepExpiredTempBans } from '../host/temp-bans.ts';
+
 interface Options {
   checkSeconds: number;
 }
-interface TempBan {
-  steamId: string;
-  reason: string;
-  expiresAt: string;
-}
-/** Removes expired CLI-created temporary bans. */ export default definePlugin<Options>({
+
+/**
+ * Lifts temporary bans when they expire. Temp bans come from the panel's Ban form (with a length) or
+ * `wd tempban`; both record the expiry in data/temp-bans.json. The panel's Cleanup button runs the same sweep.
+ */
+export default definePlugin<Options>({
   name: 'temp-bans',
-  description: 'Expires temporary bans created by wd tempban',
+  description: 'Lifts temporary bans (panel or wd tempban) when they expire',
   defaults: { checkSeconds: 60 },
   setup(ctx) {
-    const file = path.join(ctx.host.dataDir, 'temp-bans.json');
-    const check = async () => {
-      let bans: TempBan[] = [];
-      try {
-        bans = JSON.parse(await fs.readFile(file, 'utf8')) as TempBan[];
-      } catch {
-        return;
-      }
-      const active: TempBan[] = [];
-      for (const ban of bans) {
-        if (Date.parse(ban.expiresAt) <= Date.now()) {
-          await ctx.rcon.unban(ban.steamId);
-          ctx.log.info(`expired ${ban.steamId}`);
-        } else active.push(ban);
-      }
-      await fs.writeFile(file, JSON.stringify(active, null, 2));
-    };
-    ctx.every(ctx.options.checkSeconds * 1000, check, { immediate: true });
+    ctx.every(
+      Math.max(5, Number(ctx.options.checkSeconds)) * 1000,
+      async () => {
+        const lifted = await sweepExpiredTempBans(ctx.host.dataDir, ctx.rcon, ctx.log);
+        for (const id of lifted) ctx.log.info(`lifted expired temp ban ${id}`);
+      },
+      { immediate: true },
+    );
     ctx.log.info(`checking every ${ctx.options.checkSeconds}s`);
   },
 });
