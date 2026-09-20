@@ -23,6 +23,9 @@ fi
 # Service account (no login shell, no home). Skipped if it already exists.
 id wardogs >/dev/null 2>&1 || useradd --system --shell /usr/sbin/nologin --no-create-home wardogs
 
+# The checkout is owned by the service user; let root (who runs deploys) use git in it.
+git config --global --add safe.directory "$REPO" >/dev/null 2>&1 || true
+
 # Build needs devDependencies (typescript); the runtime has none.
 npm ci --no-audit --no-fund
 npm run build
