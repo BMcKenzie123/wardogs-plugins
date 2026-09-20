@@ -30,9 +30,17 @@ if command -v node >/dev/null 2>&1; then
   [ "$major" -ge 20 ] && need_node=0
 fi
 if [ "$need_node" -eq 1 ]; then
-  echo ">> Node.js 22 (NodeSource)"
-  curl -fsSL https://deb.nodesource.com/setup_22.x | bash - >/dev/null
-  apt-get install -y -qq nodejs >/dev/null
+  # Prefer the distro package when it is new enough (Ubuntu 26.04 ships Node 22); NodeSource otherwise.
+  cand=$(apt-cache policy nodejs 2>/dev/null | awk "/Candidate:/{print $2}")
+  major=$(printf "%s" "$cand" | sed -E "s/^([0-9]+).*/\1/")
+  if [ -n "$cand" ] && [ "$cand" != "(none)" ] && [ "${major:-0}" -ge 20 ] 2>/dev/null; then
+    echo ">> Node.js $cand from the distro"
+    apt-get install -y -qq nodejs npm >/dev/null 2>&1 || apt-get install -y -qq nodejs >/dev/null
+  else
+    echo ">> Node.js 22 (NodeSource)"
+    curl -fsSL https://deb.nodesource.com/setup_22.x | bash - >/dev/null
+    apt-get install -y -qq nodejs >/dev/null
+  fi
 fi
 echo "   node $(node -v), npm $(npm -v)"
 
