@@ -19,6 +19,8 @@ interface Options {
   path: string;
   /** Rows of audit log to show. */
   auditRows: number;
+  /** Lines of recent host activity to show. */
+  logLines: number;
 }
 
 /** Best-effort: pull ids/names out of a loosely shaped catalog response. */
@@ -41,6 +43,16 @@ export function namesFrom(catalog: unknown): string[] {
     .filter(Boolean);
 }
 
+/** `2026-09-20T17:38:45.610Z INFO  [host:welcome] msg` → coloured `17:38:45 INFO  [welcome] msg`. */
+export function formatLogLine(line: string): string {
+  const m = /^(\d{4}-\d\d-\d\dT)(\d\d:\d\d:\d\d)\.\d+Z (\w+)\s+(?:\[host(?::([^\]]+))?\] )?(.*)$/.exec(line);
+  if (!m) return esc(line);
+  const level = m[3]!;
+  const who = m[4] ? `<span class="who">[${esc(m[4])}]</span> ` : '';
+  const cls = level === 'WARN' ? 'warn' : level === 'ERROR' ? 'err' : '';
+  return `<span class="${cls}">${m[2]} ${level.padEnd(5)}</span> ${who}${esc(m[5])}`;
+}
+
 function authorized(req: http.IncomingMessage, password: string): boolean {
   const header = req.headers.authorization ?? '';
   if (!header.startsWith('Basic ')) return false;
@@ -61,15 +73,15 @@ function sameOrigin(req: http.IncomingMessage): boolean {
 }
 
 /**
- * The all-in-one page: everything the dashboard shows plus the admin actions the RCON API allows,
- * behind HTTP Basic auth (ADMIN_PASSWORD) with a CSRF token on every form. Put it behind HTTPS or a
- * VPN before exposing it: the password guards a full-access token.
+ * The all-in-one page: the dashboard, every admin action the RCON API allows, and the automation
+ * layer (plugin states with live enable/disable, recent activity). HTTP Basic auth (ADMIN_PASSWORD)
+ * with a CSRF token on every form. Put it behind HTTPS or a VPN before exposing it: the password
+ * guards a full-access token.
  */
 export default definePlugin<Options>({
   name: 'admin-panel',
-  description:
-    'Password-protected web admin panel: dashboard plus kick, ban, broadcast, map, lighting, sponsor',
-  defaults: { path: '/admin', auditRows: 15 },
+  description: 'Password-protected web admin: dashboard, player/server actions, plugin toggles, activity log',
+  defaults: { path: '/admin', auditRows: 15, logLines: 40 },
   setup(ctx) {
     if (!ctx.host.httpPort) {
       ctx.log.warn('HTTP_PORT is not set; plugin is idle');
@@ -172,7 +184,25 @@ export default definePlugin<Options>({
         )
         .join('');
 
-      return `<!doctype html><html><head><meta charset="utf-8"><title>Admin · ${esc(status?.serverName ?? 'WARDOGS')}</title><style>${STYLE}</style></head><body>
+      // Automation: every registered plugin, its state, and a toggle. The panel can't switch itself off.
+      const pluginRows = ctx
+        .plugins()
+        .map((p) => {
+          const toggle =
+            p.name === ctx.name
+              ? '<span class="muted">this page</span>'
+              : form(
+                  `<input type="hidden" name="name" value="${esc(p.name)}"><input type="hidden" name="enabled" value="${p.state === 'enabled' ? '0' : '1'}"><button class="${p.state === 'enabled' ? 'soft' : ''}" name="action" value="plugin">${p.state === 'enabled' ? 'Disable' : 'Enable'}</button>`,
+                  'inline',
+                );
+          const note = p.note ? `<br><span class="muted">${esc(p.note)}</span>` : '';
+          return `<tr><td><b>${esc(p.name)}</b></td><td><span class="pill ${p.state}">${p.state}</span>${note}</td><td>${esc(p.description)}</td><td>${toggle}</td></tr>`;
+        })
+        .join('');
+      const enabledCount = ctx.plugins().filter((p) => p.state === 'enabled').length;
+      const activity = ctx.recentLog(Number(ctx.options.logLines)).map(formatLogLine).join('\n');
+
+      return `<!doctype html><html><head><meta charset="utf-8"><meta name="color-scheme" content="dark"><title>Admin · ${esc(status?.serverName ?? 'WARDOGS')}</title><style>${STYLE}</style></head><body>
 ${statusHeader(ctx)}
 ${msg ? `<div class="flash">${esc(msg)}</div>` : ''}
 <h2>Players online</h2>
@@ -187,6 +217,10 @@ ${form(`<b>Ban by SteamID</b><input type="text" name="steamId" placeholder="7656
 ${form(`<b>Reserved slot</b><input type="text" name="steamId" placeholder="7656119…" required><button name="action" value="reserve">Add</button>`)}
 ${form(`<b>Sponsor banner</b><input type="text" name="imageUrl" placeholder="https://i.ibb.co/…/banner.png (1024×256)" style="flex:1"><button name="action" value="sponsor">Set</button>`)}
 </div>
+<h2>Automation</h2> <span class="muted">${enabledCount} of ${ctx.plugins().length} plugins running · toggles take effect immediately and are saved to ${esc(ctx.host.pluginsFile)}</span>
+<table><thead><tr><th>Plugin</th><th>State</th><th>What it does</th><th></th></tr></thead><tbody>${pluginRows}</tbody></table>
+<h2>Recent activity</h2>
+<pre class="log">${activity || '<span class="muted">nothing logged yet</span>'}</pre>
 <div class="grid"><div><h2>Bans</h2>${bansHtml}</div><div><h2>Reserved slots</h2>${slotsHtml}</div></div>
 <h2>Audit log</h2>${auditHtml}
 <div class="grid"><div><h2>All-time leaderboard</h2>${await leaderboardSection(ctx)}</div><div><h2>Regulars</h2>${await regularsSection(ctx)}</div></div>
@@ -207,7 +241,7 @@ ${form(`<b>Sponsor banner</b><input type="text" name="imageUrl" placeholder="htt
         case 'broadcast':
           if (!text) return 'Nothing to broadcast.';
           await ctx.rcon.broadcast(text);
-          return `Broadcast sent.`;
+          return 'Broadcast sent.';
         case 'dm':
           if (!text) return 'Type a message first.';
           await ctx.rcon.message(steamId, text);
@@ -266,6 +300,13 @@ ${form(`<b>Sponsor banner</b><input type="text" name="imageUrl" placeholder="htt
           if (problem) return problem;
           await ctx.rcon.setSponsor(imageUrl);
           return 'Sponsor banner updated.';
+        }
+        case 'plugin': {
+          const name = (fields.get('name') ?? '').trim();
+          const on = fields.get('enabled') === '1';
+          if (name === ctx.name && !on) return 'Refusing to disable the admin panel from itself.';
+          await ctx.setPluginEnabled(name, on);
+          return `${on ? 'Enabled' : 'Disabled'} ${name}.`;
         }
         default:
           return `Unknown action "${action}".`;

@@ -1,29 +1,35 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import adminPanel, { namesFrom } from '../plugins/admin-panel.ts';
-import { freePort, httpRequest, player, startMockServer, waitFor } from './mock-server.ts';
+import adminPanel, { formatLogLine, namesFrom } from '../plugins/admin-panel.ts';
+import firstTimer from '../plugins/first-timer.ts';
+import { freePort, httpRequest, player, sleep, startMockServer, waitFor } from './mock-server.ts';
 import { bodyOf, makeHost, requestsTo } from './helpers.ts';
 
 const AUTH = { Authorization: `Basic ${Buffer.from('anyone:hunter2hunter2').toString('base64')}` };
 
-test('admin-panel: namesFrom copes with the loose catalog shapes', () => {
+test('admin-panel: helpers', () => {
   assert.deepEqual(namesFrom(['Kavkazi', 'Europe']), ['Kavkazi', 'Europe']);
   assert.deepEqual(namesFrom({ maps: [{ id: 'Kavkazi', name: 'Kavkazi' }, { name: 'Ozeti' }] }), [
     'Kavkazi',
     'Ozeti',
   ]);
   assert.deepEqual(namesFrom('nope'), []);
+  assert.equal(
+    formatLogLine('2026-09-20T17:38:45.610Z INFO  [host:welcome] welcomed <Bo>'),
+    '<span class="">17:38:45 INFO </span> <span class="who">[welcome]</span> welcomed &lt;Bo&gt;',
+  );
+  assert.match(formatLogLine('2026-09-20T17:38:45.610Z WARN  [host] server down'), /class="warn"/);
 });
 
-test('admin-panel: auth, csrf, and actions reach the RCON API', async () => {
+test('admin-panel: auth, csrf, actions, and plugin toggles', async () => {
   const port = await freePort();
   const s = await startMockServer({
     state: { players: [player('a', { name: 'Ann' }), player('b', { name: 'Bo' })] },
   });
   const { host } = makeHost(
     s,
-    [adminPanel],
-    { 'admin-panel': { path: '/admin' } },
+    [adminPanel, firstTimer],
+    { 'admin-panel': { path: '/admin' }, 'first-timer': { enabled: true } },
     { httpPort: port, adminPassword: 'hunter2hunter2' },
   );
   const base = `http://127.0.0.1:${port}`;
@@ -44,6 +50,9 @@ test('admin-panel: auth, csrf, and actions reach the RCON API', async () => {
     assert.equal(page.status, 200);
     assert.match(page.body, /<b>Ann<\/b>/);
     assert.match(page.body, /Broadcast/);
+    assert.match(page.body, /Automation/);
+    assert.match(page.body, /<b>first-timer<\/b><\/td><td><span class="pill enabled">/);
+    assert.match(page.body, /background:#1C1C1C/, 'dark theme');
     const csrf = /name="_csrf" value="([a-f0-9]{32})"/.exec(page.body)?.[1];
     assert.ok(csrf, 'csrf token rendered');
 
@@ -98,6 +107,18 @@ test('admin-panel: auth, csrf, and actions reach the RCON API', async () => {
     const move = await post({ action: 'faction', steamId: 'b', faction: 'Blue', _csrf: csrf! });
     assert.equal(move.status, 303);
     assert.deepEqual(bodyOf(requestsTo(s, 'PATCH', '/v1/players/b')[0]), { faction: 'Blue' });
+
+    // Automation: switch first-timer off through the panel, then a new join must not trigger it.
+    const off = await post({ action: 'plugin', name: 'first-timer', enabled: '0', _csrf: csrf! });
+    assert.match(decodeURIComponent(String(off.headers.location)), /Disabled first-timer/);
+    const after = await httpRequest(`${base}/admin`, { headers: AUTH });
+    assert.match(after.body, /<b>first-timer<\/b><\/td><td><span class="pill disabled">/);
+    s.state.players.push(player('c', { name: 'Cy' }));
+    await sleep(120);
+    assert.equal(requestsTo(s, 'POST', '/v1/broadcast').length, 1, 'no first-timer broadcast once disabled');
+
+    const self = await post({ action: 'plugin', name: 'admin-panel', enabled: '0', _csrf: csrf! });
+    assert.match(decodeURIComponent(String(self.headers.location)), /Refusing/);
   } finally {
     await host.stop();
     await s.close();

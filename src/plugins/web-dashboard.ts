@@ -40,17 +40,34 @@ export function table(headers: string[], rows: unknown[][]): string {
   return `<table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>`;
 }
 
-export const STYLE = `body{font:14px/1.45 system-ui,sans-serif;max-width:1180px;margin:1.5rem auto;padding:0 1rem;color:#222;background:#fafafa}
-h1{margin:0 0 .25rem;font-size:1.5rem}h2{margin:1.75rem 0 .5rem;font-size:1.05rem;border-bottom:2px solid #930000;display:inline-block;padding-bottom:.15rem}
-table{border-collapse:collapse;width:100%}th,td{padding:.3rem .5rem;border-bottom:1px solid #ddd;text-align:left;font-variant-numeric:tabular-nums;vertical-align:middle}th{background:#eee}
-.muted{color:#777}.status{display:inline-block;padding:.1rem .5rem;border-radius:4px;color:#fff;font-size:.8rem;vertical-align:middle}.up{background:#2a9d5c}.down{background:#c0392b}
-.bar{display:inline-block;height:.7rem;background:#3498db;vertical-align:middle}
+/**
+ * Dark theme in the TAW WARDOGS palette: Charcoal #1C1C1C, Slate #3A3A3A, Steel #6E6E6E, Fog #C7C7C7,
+ * Primary Red #930000, Ember #C1272D, Deep Maroon #5C0000, Gunmetal Teal #2F4858, Tactical Gold #C9A227.
+ */
+export const STYLE = `body{font:14px/1.45 system-ui,sans-serif;max-width:1180px;margin:0 auto;padding:1.25rem 1rem 2rem;color:#C7C7C7;background:#1C1C1C}
+body::before{content:"";display:block;height:4px;background:#930000;margin:-1.25rem -1rem 1.25rem}
+h1{margin:0 0 .25rem;font-size:1.5rem;color:#fff}
+h2{margin:1.75rem 0 .5rem;font-size:.95rem;letter-spacing:.08em;text-transform:uppercase;color:#fff;border-bottom:2px solid #930000;display:inline-block;padding-bottom:.15rem}
+b{color:#fff}a{color:#C9A227}
+table{border-collapse:collapse;width:100%}th,td{padding:.35rem .5rem;border-bottom:1px solid #3A3A3A;text-align:left;font-variant-numeric:tabular-nums;vertical-align:middle}
+th{background:#242424;color:#fff;font-weight:600}tbody tr:hover td{background:#222}
+.muted{color:#6E6E6E}
+.status{display:inline-block;padding:.1rem .5rem;border-radius:4px;color:#fff;font-size:.8rem;vertical-align:middle}.up{background:#2F4858}.down{background:#C1272D}
+.bar{display:inline-block;height:.7rem;background:#C9A227;vertical-align:middle}
 .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:1rem}
-form.inline{display:inline-flex;gap:.3rem;align-items:center;margin:0}form.card{background:#fff;border:1px solid #ddd;border-radius:6px;padding:.75rem;display:flex;flex-wrap:wrap;gap:.4rem;align-items:center}
-input,select{padding:.3rem .4rem;border:1px solid #bbb;border-radius:4px;font:inherit}input[type=text]{min-width:8rem}
-button{padding:.3rem .6rem;border:1px solid #930000;background:#930000;color:#fff;border-radius:4px;font:inherit;cursor:pointer}button.soft{background:#fff;color:#930000}button.warn{background:#c0392b;border-color:#c0392b}
-.flash{background:#fff8e1;border:1px solid #e0c36a;padding:.5rem .75rem;border-radius:4px;margin:.75rem 0}
-.tag{font-size:.75rem;color:#555;background:#eee;border-radius:3px;padding:.05rem .35rem}`;
+form.inline{display:inline-flex;gap:.3rem;align-items:center;margin:0;flex-wrap:wrap}
+form.card{background:#242424;border:1px solid #3A3A3A;border-radius:6px;padding:.75rem;display:flex;flex-wrap:wrap;gap:.4rem;align-items:center}
+input,select{padding:.3rem .4rem;border:1px solid #3A3A3A;border-radius:4px;font:inherit;background:#1C1C1C;color:#fff}input[type=text]{min-width:8rem}input::placeholder{color:#6E6E6E}
+input:focus,select:focus{outline:none;border-color:#C9A227}
+button{padding:.3rem .6rem;border:1px solid #930000;background:#930000;color:#fff;border-radius:4px;font:inherit;cursor:pointer}button:hover{background:#C1272D;border-color:#C1272D}
+button.soft{background:transparent;color:#C7C7C7;border-color:#6E6E6E}button.soft:hover{background:#3A3A3A;border-color:#C7C7C7;color:#fff}
+button.warn{background:#5C0000;border-color:#C1272D}button.warn:hover{background:#C1272D}
+.flash{background:#2a2411;border:1px solid #C9A227;color:#fff;padding:.5rem .75rem;border-radius:4px;margin:.75rem 0}
+.tag{font-size:.75rem;color:#C7C7C7;background:#3A3A3A;border-radius:3px;padding:.05rem .35rem}
+.pill{display:inline-block;padding:.05rem .5rem;border-radius:999px;font-size:.75rem;font-weight:600;text-transform:uppercase;letter-spacing:.04em}
+.pill.enabled{background:#2F4858;color:#fff}.pill.disabled{background:#3A3A3A;color:#C7C7C7}.pill.skipped{background:#5C0000;color:#fff}.pill.failed{background:#C1272D;color:#fff}
+pre.log{background:#111;border:1px solid #3A3A3A;border-radius:6px;padding:.6rem .8rem;max-height:22rem;overflow:auto;font:12px/1.45 ui-monospace,Consolas,monospace;color:#C7C7C7;white-space:pre-wrap;margin:0}
+pre.log .warn{color:#C9A227}pre.log .err{color:#C1272D}pre.log .who{color:#fff}`;
 
 export function statusHeader(view: View): string {
   const snap = view.snapshot();

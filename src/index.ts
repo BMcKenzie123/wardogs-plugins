@@ -1,5 +1,5 @@
 import { loadEnv, loadHostConfig, loadPluginsFile, loadRconConfig } from './config.ts';
-import { createLogger } from './host/logger.ts';
+import { LogBuffer, createLogger } from './host/logger.ts';
 import { PluginHost } from './host/host.ts';
 import { registry } from './host/registry.ts';
 import { RconClient } from './rcon/client.ts';
@@ -7,7 +7,8 @@ import { RconClient } from './rcon/client.ts';
 loadEnv();
 
 const config = loadHostConfig();
-const logger = createLogger(config.logLevel, 'host');
+const logBuffer = new LogBuffer(400); // recent activity for the admin panel
+const logger = createLogger(config.logLevel, 'host', (line) => logBuffer.push(line));
 
 let rcon: RconClient;
 try {
@@ -23,6 +24,7 @@ const host = new PluginHost({
   plugins: loadPluginsFile(config.pluginsFile),
   registry,
   logger,
+  logBuffer,
 });
 
 logger.info(`wardogs-plugins starting → ${rcon.baseUrl} (poll ${config.pollMs} ms, data ${config.dataDir})`);
