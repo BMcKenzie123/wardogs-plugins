@@ -1,6 +1,6 @@
 {
   "name": "wardogs-plugins",
-  "version": "0.1.0",
+  "version": "2.0.0",
   "description": "Plugin host + CLI for a WARDOGS dedicated server (xREALM or any approved host) driven over the RCON HTTP API. Runs off-box on any machine you control.",
   "type": "module",
   "private": true,
