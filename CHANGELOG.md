@@ -15,6 +15,9 @@ versions follow semver. Dates are the day the change reached the live TAW WARDOG
 - **Temp bans in the panel.** Every Ban form takes a length (30m, 12h, 3d, 2w; empty = permanent); the Bans table
   shows when each lifts and who placed it; **Cleanup** lifts every expired temp ban on the spot. Unban drops the
   record. Shared `src/host/temp-bans.ts` backs the panel, `wd tempban` and the temp-bans plugin.
+- **Appeals and accountability.** Every ban placed from the panel carries the appeal path (admin-panel option
+  `appealNote`, default "Appeal at discord.gg/taw") in the reason the banned player sees. Every admin action is
+  recorded as one JSON line in `data/admin-actions.jsonl` (time, admin, action, target, text, duration, outcome).
 - motd: the cadence survives restarts and saves (next line due relative to the last send); every send is logged.
 - Copy: in-game lines say "TAW WARDOGS NA" instead of expanding `{server}` to the full browser title.
 

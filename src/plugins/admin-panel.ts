@@ -1,4 +1,5 @@
 import { createHash, randomBytes } from 'node:crypto';
+import fs from 'node:fs/promises';
 import path from 'node:path';
 import { authenticate, parseAdminUsers, type AdminUser } from '../host/admins.ts';
 import type http from 'node:http';
@@ -41,6 +42,10 @@ interface Options {
   label: string;
   /** Other servers' panels to link to, e.g. [{ "name": "EU", "url": "/eu/admin" }]. */
   otherPanels: Array<{ name: string; url: string }>;
+  /** Appended to every ban reason so the banned player knows where to appeal. Empty = off. */
+  appealNote: string;
+  /** Record every admin action (who, what, target, result) to data/admin-actions.jsonl. */
+  actionLog: boolean;
 }
 
 /** Best-effort: pull ids/names out of a loosely shaped catalog response. */
@@ -135,7 +140,16 @@ export default definePlugin<Options>({
   name: 'admin-panel',
   description:
     'Password-protected web admin: dashboard, player/server actions, plugin management (toggle, configure, restart), activity log',
-  defaults: { path: '/admin', auditRows: 15, logLines: 40, steamBaseUrl: '', label: '', otherPanels: [] },
+  defaults: {
+    path: '/admin',
+    auditRows: 15,
+    logLines: 40,
+    steamBaseUrl: '',
+    label: '',
+    otherPanels: [],
+    appealNote: 'Appeal at discord.gg/taw',
+    actionLog: true,
+  },
   setup(ctx) {
     if (!ctx.host.httpPort) {
       ctx.log.warn('HTTP_PORT is not set; plugin is idle');
@@ -435,6 +449,31 @@ document.addEventListener('visibilitychange',function(){if(!document.hidden)refr
 </body></html>`;
     };
 
+    // A durable record of every admin action, for ban appeals and accountability: who did what to whom,
+    // and what came of it. One JSON line per action in data/admin-actions.jsonl.
+    let actionLogWarned = false;
+    const recordAction = (admin: string, fields: URLSearchParams, ok: boolean, result: string): void => {
+      if (!ctx.options.actionLog) return;
+      const steamId = (fields.get('steamId') ?? fields.get('name') ?? '').trim();
+      const line = {
+        t: new Date().toISOString(),
+        admin,
+        action: fields.get('action') ?? '',
+        ...(steamId ? { target: steamId } : {}),
+        ...(fields.get('text') ? { text: fields.get('text') } : {}),
+        ...(fields.get('duration') ? { duration: fields.get('duration') } : {}),
+        ok,
+        result,
+      };
+      fs.appendFile(path.join(ctx.host.dataDir, 'admin-actions.jsonl'), `${JSON.stringify(line)}\n`).catch(
+        (e: unknown) => {
+          if (actionLogWarned) return;
+          actionLogWarned = true;
+          ctx.log.warn('could not write admin-actions.jsonl', e);
+        },
+      );
+    };
+
     const act = async (fields: URLSearchParams, admin: string): Promise<string> => {
       const action = fields.get('action') ?? '';
       const steamId = (fields.get('steamId') ?? '').trim();
@@ -462,13 +501,22 @@ document.addEventListener('visibilitychange',function(){if(!document.hidden)refr
           const ms = duration ? durationMs(duration) : null;
           if (duration && ms === null)
             return `Ban length "${duration}" is not valid: use 30m, 12h, 3d or 2w, or leave it empty for permanent.`;
-          await ctx.rcon.ban(steamId, text || undefined);
+          // The reason is what the banned player sees; make sure it says where to appeal.
+          const note = String(ctx.options.appealNote ?? '').trim();
+          const reason = !note
+            ? text
+            : !text
+              ? note
+              : text.toLowerCase().includes(note.toLowerCase())
+                ? text
+                : `${text.replace(/[.\s]+$/, '')}. ${note}`;
+          await ctx.rcon.ban(steamId, reason || undefined);
           if (ms === null) {
             await forgetTempBan(ctx.host.dataDir, steamId);
             return `Banned${who} permanently.`;
           }
           const expiresAt = new Date(Date.now() + ms).toISOString();
-          await recordTempBan(ctx.host.dataDir, { steamId, reason: text, expiresAt, by: admin });
+          await recordTempBan(ctx.host.dataDir, { steamId, reason, expiresAt, by: admin });
           return `Banned${who} for ${duration}; lifts ${expiresAt.slice(0, 16).replace('T', ' ')} UTC.`;
         }
         case 'unban':
@@ -606,6 +654,7 @@ document.addEventListener('visibilitychange',function(){if(!document.hidden)refr
         try {
           const result = await act(fields, who);
           ctx.log.info(`admin ${fields.get('action')} by ${who} → ${result}`);
+          recordAction(who, fields, true, result);
           redirect(res, result);
         } catch (e) {
           const message =
@@ -615,6 +664,7 @@ document.addEventListener('visibilitychange',function(){if(!document.hidden)refr
                 ? e.message
                 : String(e);
           ctx.log.warn(`admin ${fields.get('action')} by ${who} failed: ${message}`);
+          recordAction(who, fields, false, message);
           redirect(res, `Failed: ${message}`);
         }
       },

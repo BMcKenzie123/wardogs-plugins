@@ -113,3 +113,16 @@ One-line version for the MOTD: `Rules here are simple: play fair, no cheating, n
 - No member counts, founding years, or "biggest" claims. They date, and they are not why anyone joins.
 - No "join now" pressure on the first DM. The first visit is for the game; the pitch comes after 15 minutes of it.
 - No second link. Everything routes through discord.gg/taw.
+
+## Ban reasons and appeals
+
+The ban reason is the one line a banned player sees. The panel appends the appeal path to every reason
+(admin-panel option `appealNote`, default `Appeal at discord.gg/taw`), so an admin only writes the cause:
+
+- `Cheating` → the player sees `Cheating. Appeal at discord.gg/taw`
+- `Team-killing after two warnings` → `Team-killing after two warnings. Appeal at discord.gg/taw`
+- a temp ban with no reason typed → `Appeal at discord.gg/taw`
+
+Write the cause as a fact, not an insult: it is read by the player, quoted in the appeal, and kept in
+`data/admin-actions.jsonl` under the admin's name. Rules line for the rotation once an appeals channel exists:
+`Rules: play fair, no cheating, no harassment, no griefing. Report a player or appeal a ban at discord.gg/taw`
