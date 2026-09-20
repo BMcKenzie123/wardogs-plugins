@@ -117,7 +117,6 @@ export default definePlugin<Options>({
     const pagePath = ctx.options.path;
     const actionPath = pagePath === '/' ? '/action' : `${pagePath.replace(/\/$/, '')}/action`;
     const csrf = randomBytes(16).toString('hex');
-    const canFaction = ctx.hasRoute('PATCH', '/v1/players/{id}');
     const web = acquireWebServer(ctx.host.httpPort, ctx.log);
 
     const deny = (res: http.ServerResponse): void => {
@@ -135,6 +134,7 @@ export default definePlugin<Options>({
     const page = async (req: http.IncomingMessage, who: string): Promise<string> => {
       const snap = ctx.snapshot();
       const status = snap?.status;
+      const canFaction = ctx.hasRoute('PATCH', '/v1/players/{id}');
       const msg = new URL(req.url ?? '/', 'http://x').searchParams.get('msg');
       const hidden = `<input type="hidden" name="_csrf" value="${csrf}">`;
       const form = (inner: string, cls = 'card'): string =>

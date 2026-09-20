@@ -49,6 +49,7 @@ export class PluginHost {
   private lastSeen = new Map<string, Player>();
   private auditKeys = new Set<string>();
   private auditSeeded = false;
+  private capsKnown = false;
 
   constructor(args: {
     rcon: RconClient;
@@ -68,17 +69,10 @@ export class PluginHost {
 
   async start(): Promise<void> {
     await fs.mkdir(this.config.dataDir, { recursive: true });
-    while (!this.stopped) {
-      try {
-        this.caps = await this.rcon.capabilities();
-        break;
-      } catch (e) {
-        this.logger.error('capabilities unavailable; retrying', e);
-        await new Promise<void>((r) => setTimeout(r, this.config.pollMs));
-      }
-    }
+    // A few quick tries, then carry on: the web panel and everything else must come up even when the
+    // game server is unreachable (or the RCON details are still placeholders). Re-checked on server.up.
+    await this.refreshCapabilities(3);
     if (this.stopped) return;
-    this.logger.info(`capabilities: ${this.caps.routes.length} routes`);
     for (const [name, plugin] of Object.entries(this.registry))
       this.status.set(name, { name, description: plugin.description, state: 'disabled' });
     for (const [name, file] of Object.entries(this.plugins)) {
@@ -93,6 +87,42 @@ export class PluginHost {
     this.polling = true;
     this.schedulePoll(0); // first poll immediately, then every pollMs
     this.ensureAuditLoop();
+  }
+
+  private async refreshCapabilities(attempts: number): Promise<boolean> {
+    for (let i = 0; i < attempts && !this.stopped; i++) {
+      try {
+        this.caps = await this.rcon.capabilities();
+        this.capsKnown = true;
+        this.logger.info(`capabilities: ${this.caps.routes.length} routes`);
+        return true;
+      } catch (e) {
+        this.logger.warn(`capabilities unavailable (attempt ${i + 1}/${attempts})`, e);
+        if (i < attempts - 1) await new Promise<void>((r) => setTimeout(r, this.config.pollMs));
+      }
+    }
+    if (!this.capsKnown) {
+      this.caps = { routes: [], config: { writable: false } };
+      this.logger.warn(
+        'starting without capabilities; route requirements will be checked when the server answers',
+      );
+    }
+    return this.capsKnown;
+  }
+
+  /** Once capabilities are known, drop running plugins whose routes are missing and start skipped ones that fit. */
+  private async recheckRequirements(): Promise<void> {
+    for (const [name, owned] of [...this.active]) {
+      const missing = (owned.plugin.requires ?? []).filter(([m, p]) => !RconClient.hasRoute(this.caps, m, p));
+      if (!missing.length) continue;
+      await this.deactivate(name);
+      const note = `missing ${missing.map(([m, p]) => `${m} ${p}`).join(', ')}`;
+      this.status.set(name, { name, description: owned.plugin.description, state: 'skipped', note });
+      this.logger.warn(`stopped ${name}; ${note}`);
+    }
+    for (const [name, st] of [...this.status])
+      if (st.state === 'skipped' && this.plugins[name]?.enabled === true && !this.active.has(name))
+        await this.activate(name);
   }
 
   /** Current state of every registered plugin. */
@@ -129,7 +159,7 @@ export class PluginHost {
     const plugin = this.registry[name]!;
     const file = this.plugins[name] ?? {};
     const missing = (plugin.requires ?? []).filter(([m, p]) => !RconClient.hasRoute(this.caps, m, p));
-    if (missing.length) {
+    if (this.capsKnown && missing.length) {
       const note = `missing ${missing.map(([m, p]) => `${m} ${p}`).join(', ')}`;
       this.logger.warn(`skipping ${name}; ${note}`);
       this.status.set(name, { name, description: plugin.description, state: 'skipped', note });
@@ -288,6 +318,7 @@ export class PluginHost {
       this.up = true;
       this.downSince = undefined;
       this.latest = snap;
+      if (!this.capsKnown && (await this.refreshCapabilities(1))) await this.recheckRequirements();
       // A baseline (first poll, or first poll after an outage) resets the roster we track, so players who
       // came or went while we were blind never surface as join/leave events. Their session start is unknown.
       const baseline = this.previous === null;
