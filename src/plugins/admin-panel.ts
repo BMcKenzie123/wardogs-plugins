@@ -1,4 +1,5 @@
-import { randomBytes, timingSafeEqual } from 'node:crypto';
+import { createHash, randomBytes } from 'node:crypto';
+import { authenticate, parseAdminUsers, type AdminUser } from '../host/admins.ts';
 import type http from 'node:http';
 import { acquireWebServer } from '../host/webserver.ts';
 import { definePlugin } from '../host/plugin.ts';
@@ -53,13 +54,26 @@ export function formatLogLine(line: string): string {
   return `<span class="${cls}">${m[2]} ${level.padEnd(5)}</span> ${who}${esc(m[5])}`;
 }
 
-function authorized(req: http.IncomingMessage, password: string): boolean {
-  const header = req.headers.authorization ?? '';
-  if (!header.startsWith('Basic ')) return false;
-  const decoded = Buffer.from(header.slice(6), 'base64').toString('utf8');
-  const given = Buffer.from(decoded.slice(decoded.indexOf(':') + 1));
-  const expected = Buffer.from(password);
-  return given.length === expected.length && timingSafeEqual(given, expected);
+/** Basic auth → admin name, or null. Verified pairs are cached per process so scrypt runs once per login. */
+function makeAuthorizer(
+  users: AdminUser[],
+  shared: string | undefined,
+): (req: http.IncomingMessage) => string | null {
+  const cache = new Map<string, string>();
+  return (req) => {
+    const header = req.headers.authorization ?? '';
+    if (!header.startsWith('Basic ')) return null;
+    const decoded = Buffer.from(header.slice(6), 'base64').toString('utf8');
+    const idx = decoded.indexOf(':');
+    const user = idx < 0 ? '' : decoded.slice(0, idx);
+    const password = idx < 0 ? decoded : decoded.slice(idx + 1);
+    const key = createHash('sha256').update(decoded).digest('hex');
+    const hit = cache.get(key);
+    if (hit) return hit;
+    const name = authenticate(user, password, users, shared);
+    if (name) cache.set(key, name);
+    return name;
+  };
 }
 
 function sameOrigin(req: http.IncomingMessage): boolean {
@@ -87,11 +101,19 @@ export default definePlugin<Options>({
       ctx.log.warn('HTTP_PORT is not set; plugin is idle');
       return;
     }
-    const password = ctx.host.adminPassword;
-    if (!password || password.length < 8) {
-      ctx.log.warn('ADMIN_PASSWORD is not set (or shorter than 8 chars); plugin is idle');
+    let users: AdminUser[] = [];
+    try {
+      users = parseAdminUsers(ctx.host.adminUsers);
+    } catch (e) {
+      ctx.log.warn(`ADMIN_USERS is invalid; plugin is idle: ${e instanceof Error ? e.message : String(e)}`);
       return;
     }
+    const shared = ctx.host.adminPassword;
+    if (!users.length && !(shared && shared.length >= 8)) {
+      ctx.log.warn('no ADMIN_USERS and no ADMIN_PASSWORD (8+ chars); plugin is idle');
+      return;
+    }
+    const authorized = makeAuthorizer(users, shared);
     const pagePath = ctx.options.path;
     const actionPath = pagePath === '/' ? '/action' : `${pagePath.replace(/\/$/, '')}/action`;
     const csrf = randomBytes(16).toString('hex');
@@ -110,7 +132,7 @@ export default definePlugin<Options>({
       res.end();
     };
 
-    const page = async (req: http.IncomingMessage): Promise<string> => {
+    const page = async (req: http.IncomingMessage, who: string): Promise<string> => {
       const snap = ctx.snapshot();
       const status = snap?.status;
       const msg = new URL(req.url ?? '/', 'http://x').searchParams.get('msg');
@@ -225,7 +247,7 @@ ${form(`<b>Sponsor banner</b><input type="text" name="imageUrl" placeholder="htt
 <h2>Audit log</h2>${auditHtml}
 <div class="grid"><div><h2>All-time leaderboard</h2>${await leaderboardSection(ctx)}</div><div><h2>Regulars</h2>${await regularsSection(ctx)}</div></div>
 <h2>Average players by hour (last 24 h)</h2>${await hourlySection(ctx)}
-<p class="muted">wardogs-plugins admin · ${canFaction ? 'faction moves enabled' : 'faction moves not supported by this server'} · auto-refreshes when idle</p>
+<p class="muted">wardogs-plugins admin · signed in as <b>${esc(who)}</b> · ${users.length ? `${users.length} named admin(s)` : 'shared password'} · ${canFaction ? 'faction moves enabled' : 'faction moves not supported by this server'} · auto-refreshes when idle</p>
 <script>setTimeout(function(){var a=document.activeElement;if(!a||!/INPUT|TEXTAREA|SELECT/.test(a.tagName))location.replace(location.pathname)},30000)</script>
 </body></html>`;
     };
@@ -317,16 +339,18 @@ ${form(`<b>Sponsor banner</b><input type="text" name="imageUrl" placeholder="htt
       method: 'GET',
       path: pagePath,
       handler: async (req, res) => {
-        if (!authorized(req, password)) return deny(res);
+        const who = authorized(req);
+        if (!who) return deny(res);
         res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' });
-        res.end(await page(req));
+        res.end(await page(req, who));
       },
     });
     const unregisterPost = web.register({
       method: 'POST',
       path: actionPath,
       handler: async (req, res, body) => {
-        if (!authorized(req, password)) return deny(res);
+        const who = authorized(req);
+        if (!who) return deny(res);
         const fields = new URLSearchParams(body);
         if (fields.get('_csrf') !== csrf || !sameOrigin(req)) {
           res.writeHead(403, { 'Content-Type': 'text/plain' });
@@ -335,7 +359,7 @@ ${form(`<b>Sponsor banner</b><input type="text" name="imageUrl" placeholder="htt
         }
         try {
           const result = await act(fields);
-          ctx.log.info(`admin ${fields.get('action')} → ${result}`);
+          ctx.log.info(`admin ${fields.get('action')} by ${who} → ${result}`);
           redirect(res, result);
         } catch (e) {
           const message =
@@ -344,7 +368,7 @@ ${form(`<b>Sponsor banner</b><input type="text" name="imageUrl" placeholder="htt
               : e instanceof Error
                 ? e.message
                 : String(e);
-          ctx.log.warn(`admin ${fields.get('action')} failed: ${message}`);
+          ctx.log.warn(`admin ${fields.get('action')} by ${who} failed: ${message}`);
           redirect(res, `Failed: ${message}`);
         }
       },
@@ -354,6 +378,8 @@ ${form(`<b>Sponsor banner</b><input type="text" name="imageUrl" placeholder="htt
       unregisterPost();
       web.release();
     });
-    ctx.log.info(`admin panel at http://0.0.0.0:${ctx.host.httpPort}${pagePath} (Basic auth, any username)`);
+    ctx.log.info(
+      `admin panel at http://0.0.0.0:${ctx.host.httpPort}${pagePath} (Basic auth: ${users.map((u) => u.name).join(', ') || 'shared password'})`,
+    );
   },
 });

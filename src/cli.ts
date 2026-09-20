@@ -7,6 +7,7 @@ import fs from 'node:fs/promises';
 import { loadEnv, loadHostConfig, loadRconConfig } from './config.ts';
 import { RconClient, RconConflictError, RconError } from './rcon/client.ts';
 import { sponsorUrlProblem } from './host/sponsor.ts';
+import { generatePassword, hashPassword } from './host/admins.ts';
 import type { FactionScore, MapSelection, Status } from './rcon/types.ts';
 
 export function parseDuration(value: string): number {
@@ -56,6 +57,7 @@ Config
   wd config validate <file>
   wd config put <file> [--force] [--full-apply]        sends If-Match unless --force
   wd sponsor <imageUrl> [--force]  1024x256 PNG/JPEG on catbox.moe, imgbb.com or postimg.cc
+  wd admin-hash <name> [password]   print an ADMIN_USERS entry for the admin panel (generates a password if omitted)
 
 Flags
   --json                            print raw JSON instead of tables
@@ -381,6 +383,17 @@ async function main(): Promise<number> {
   };
   if (!args.positional[0] || args.positional[0] === 'help' || args.flags.help) {
     console.log(HELP);
+    return 0;
+  }
+  if (args.positional[0] === 'admin-hash') {
+    const name = args.positional[1];
+    if (!name) {
+      console.error('usage: wd admin-hash <name> [password]');
+      return 1;
+    }
+    const password = args.positional[2] ?? generatePassword();
+    console.log(`${name}:${hashPassword(password)}`);
+    if (!args.positional[2]) console.error(`password for ${name} (shown once): ${password}`);
     return 0;
   }
   loadEnv();

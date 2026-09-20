@@ -3,7 +3,7 @@
 # Run on the box as root AFTER `ssh <box> true` works with your key from another terminal.
 set -eu
 mkdir -p /etc/ssh/sshd_config.d
-cat > /etc/ssh/sshd_config.d/50-wardogs.conf <<CONF
+cat > /etc/ssh/sshd_config.d/00-wardogs.conf <<CONF
 PasswordAuthentication no
 KbdInteractiveAuthentication no
 PermitRootLogin prohibit-password

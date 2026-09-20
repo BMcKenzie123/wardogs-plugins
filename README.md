@@ -109,6 +109,8 @@ Each key is a plugin name; `"enabled": true` turns it on; the rest are that plug
 | `health-endpoint`         | `/healthz` for uptime monitors (503 when polls go stale)                                                                                                                                               | `path`, `staleAfterPolls`                                              | `HTTP_PORT`                   |
 | `downtime-alert`          | Discord alert only if the server stays down N minutes, plus a recovery note                                                                                                                            | `afterMinutes`, `recoveredMessage`                                     | webhook                       |
 
+Admin panel logins: set `ADMIN_USERS` to comma-separated `name:scrypt:salt:hash` entries made with `wd admin-hash <name>` (it generates and prints a password once; only the hash is stored). Every action is logged under the admin's name. `ADMIN_PASSWORD` remains as a shared fallback.
+
 Plugins marked `HTTP_PORT` share one listener on that port. `temp-bans` pairs with the CLI:
 `wd tempban <steamId> 3d reason` bans now and records the expiry, `wd tempbans` lists them.
 

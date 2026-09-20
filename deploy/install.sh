@@ -26,6 +26,7 @@ id wardogs >/dev/null 2>&1 || useradd --system --shell /usr/sbin/nologin --no-cr
 # Build needs devDependencies (typescript); the runtime has none.
 npm ci --no-audit --no-fund
 npm run build
+mkdir -p "$REPO/data"   # ReadWritePaths in the unit needs it to exist
 
 chown -R wardogs:wardogs "$REPO"
 chmod 600 .env
