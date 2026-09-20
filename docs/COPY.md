@@ -11,6 +11,7 @@ Rules of thumb:
 - **discord.gg/taw is the only link.** One destination, always the same.
 - **No exclamation stacking, no emoji, no all-caps.** The unit name carries the weight.
 - **Placeholders** are per plugin and listed with each line. A typo in a placeholder prints literally.
+- **Do not use `{server}` in-game.** It expands to the full browser title ("[TAW] The Art of Warfare | NA Central #1 | New Player Friendly"), 60 characters before the message starts. Write "TAW WARDOGS NA". `{server}` is fine in Discord posts.
 
 Edit any line in the panel: Automation → the plugin → Configure → Save & apply.
 
@@ -29,7 +30,7 @@ Rotation order matters: welcome, rules, invite, recruit, thanks. Line 2 changes 
 ## Welcome (`welcome`, DM 6 s after a join)
 
 - **message** `{server} {name} {players} {max}`:
-  `Welcome to {server}, {name}. {players}/{max} on right now. New here? Say hi in chat. TAW Discord: discord.gg/taw`
+  `Welcome to TAW WARDOGS NA, {name}. {players}/{max} on right now. New here? Say hi in chat. Discord: discord.gg/taw`
 - **returningMessage** `{name}`:
   `Welcome back, {name}. Good to see you again. Discord: discord.gg/taw`
 
@@ -46,14 +47,14 @@ Your original line, kept as written:
 ## Recruiting pitch (`recruit-pitch`, DM after 15 min of real play, once a week per player)
 
 - **message** `{name} {server} {players} {max} {kills}`:
-  `Enjoying {server}, {name}? TAW is a real unit: squads, ranks, people who show up every night. See for yourself: discord.gg/taw`
+  `Enjoying TAW WARDOGS NA, {name}? TAW is a real unit: squads, ranks, people who show up every night. See for yourself: discord.gg/taw`
 
 ## Regulars (`regulars`, DM on the visit that hits a tier)
 
 - **visit 3** `{name} {visits} {minutes} {server}`:
   `Third visit, {name}. That makes you a regular around here. Come meet the rest of us: discord.gg/taw`
 - **visit 10**:
-  `{visits} visits and {minutes} minutes on {server}, {name}. Regulars like you get reserved slots. Ask in discord.gg/taw`
+  `{visits} visits and {minutes} minutes with TAW WARDOGS NA, {name}. Regulars like you get reserved slots. Ask in discord.gg/taw`
 
 ## Comeback (`comeback`, DM when someone returns after 14+ days)
 
@@ -73,12 +74,12 @@ Your original line, kept as written:
 
 ## Playtime ranks (`playtime-ranks`, off until approved; 5 / 25 / 100 h)
 
-- **announce** `{name} {title} {hours} {server}`: `{name} just made {title}: {hours} hours on {server}. Respect.`
+- **announce** `{name} {title} {hours} {server}`: `{name} just made {title}: {hours} hours with TAW WARDOGS NA. Respect.`
 
 ## Reserved slot reward (`reserved-slot-reward`, blocked by #5)
 
 - **message** `{visits} {name} {server}`:
-  `Thanks for coming back {visits} times, {name}. You now have a reserved slot on {server}. See you tonight.`
+  `Thanks for coming back {visits} times, {name}. You now have a reserved slot on TAW WARDOGS NA. See you tonight.`
 
 ## Discord rally (`fill-server`, needs #2)
 
