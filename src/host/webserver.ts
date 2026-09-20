@@ -43,6 +43,7 @@ function readBody(req: http.IncomingMessage): Promise<string> {
 export function acquireWebServer(
   port: number,
   logger: Logger,
+  bind = '0.0.0.0',
 ): { register(route: Route): () => void; release(): void } {
   if (!server) {
     server = http.createServer((req, res) => {
@@ -63,9 +64,9 @@ export function acquireWebServer(
         });
     });
     server.on('error', (error: unknown) => logger.error('web server error (is the port free?)', error));
-    server.listen(port, '0.0.0.0');
+    server.listen(port, bind);
     activePort = port;
-    logger.info(`web server listening at http://0.0.0.0:${port}`);
+    logger.info(`web server listening at http://${bind}:${port}`);
   } else if (activePort !== port) {
     logger.warn(`web server already acquired on port ${activePort}; ignoring ${port}`);
   }

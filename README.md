@@ -242,6 +242,18 @@ npm ci && npm run build
 pm2 start dist/index.js --name wardogs-plugins && pm2 save
 ```
 
+### Public URL for the admin panel
+
+By default the panel is reachable only over an SSH tunnel. To give admins a real URL:
+
+```bash
+ssh <box> "sh /opt/wardogs-plugins/deploy/public-url.sh 65-108-108-235.sslip.io"   # or your own hostname
+```
+
+That installs Caddy, gets a Let's Encrypt certificate automatically, proxies only `/admin` and `/healthz`,
+re-binds the app to loopback (`HTTP_BIND=127.0.0.1`) and opens ports 80/443. The dashboard and `/metrics`
+stay tunnel-only. `sslip.io` names map straight to the IP, so no domain is required.
+
 ## Security
 
 The RCON password is a **full-access** token: it can kick, ban, replace the config, and end matches. Keep `.env`

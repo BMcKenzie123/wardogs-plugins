@@ -117,7 +117,7 @@ export default definePlugin<Options>({
     const pagePath = ctx.options.path;
     const actionPath = pagePath === '/' ? '/action' : `${pagePath.replace(/\/$/, '')}/action`;
     const csrf = randomBytes(16).toString('hex');
-    const web = acquireWebServer(ctx.host.httpPort, ctx.log);
+    const web = acquireWebServer(ctx.host.httpPort, ctx.log, ctx.host.httpBind ?? '0.0.0.0');
 
     const deny = (res: http.ServerResponse): void => {
       res.writeHead(401, {
@@ -379,7 +379,7 @@ ${form(`<b>Sponsor banner</b><input type="text" name="imageUrl" placeholder="htt
       web.release();
     });
     ctx.log.info(
-      `admin panel at http://0.0.0.0:${ctx.host.httpPort}${pagePath} (Basic auth: ${users.map((u) => u.name).join(', ') || 'shared password'})`,
+      `admin panel at http://${ctx.host.httpBind ?? '0.0.0.0'}:${ctx.host.httpPort}${pagePath} (Basic auth: ${users.map((u) => u.name).join(', ') || 'shared password'})`,
     );
   },
 });

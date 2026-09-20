@@ -20,7 +20,7 @@ export default definePlugin<Options>({
       ctx.log.warn('HTTP_PORT is not set; plugin is idle');
       return;
     }
-    const web = acquireWebServer(ctx.host.httpPort, ctx.log);
+    const web = acquireWebServer(ctx.host.httpPort, ctx.log, ctx.host.httpBind ?? '0.0.0.0');
     const unregister = web.register({
       method: 'GET',
       path: ctx.options.path,
@@ -45,6 +45,8 @@ export default definePlugin<Options>({
       unregister();
       web.release();
     });
-    ctx.log.info(`health at http://0.0.0.0:${ctx.host.httpPort}${ctx.options.path}`);
+    ctx.log.info(
+      `health at http://${ctx.host.httpBind ?? '0.0.0.0'}:${ctx.host.httpPort}${ctx.options.path}`,
+    );
   },
 });

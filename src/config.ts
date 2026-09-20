@@ -19,6 +19,8 @@ export interface HostConfig {
   discordBotToken?: string;
   steamApiKey?: string;
   httpPort?: number;
+  /** Address the shared web listener binds to; 127.0.0.1 when a reverse proxy (Caddy) fronts it. */
+  httpBind?: string;
   /** Password for the admin-panel plugin (HTTP Basic auth). */
   adminPassword?: string;
   /** Named admin logins as scrypt hashes: name:scrypt:salt:hash,... (see `wd admin-hash`). */
@@ -68,6 +70,7 @@ export function loadHostConfig(env: NodeJS.ProcessEnv = process.env): HostConfig
     discordBotToken: env.DISCORD_BOT_TOKEN || undefined,
     steamApiKey: env.STEAM_API_KEY || undefined,
     httpPort: env.HTTP_PORT ? num(env.HTTP_PORT, 0) || undefined : undefined,
+    httpBind: env.HTTP_BIND || undefined,
     adminPassword: env.ADMIN_PASSWORD || undefined,
     adminUsers: env.ADMIN_USERS || undefined,
   };
