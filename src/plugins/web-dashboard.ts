@@ -76,7 +76,8 @@ form.opts{display:block;margin:.5rem 0 0;padding:.75rem;background:#242424;borde
 .field input,.field select,.field textarea{width:100%;box-sizing:border-box}
 textarea{padding:.3rem .4rem;border:1px solid #3A3A3A;border-radius:4px;font:12px/1.45 ui-monospace,Consolas,monospace;background:#1C1C1C;color:#fff;resize:vertical}textarea:focus{outline:none;border-color:#C9A227}
 .def{color:#6E6E6E;font-size:.75rem;font-weight:400;text-transform:none;letter-spacing:0}
-.row{display:flex;flex-wrap:wrap;gap:.4rem;align-items:center}`;
+.row{display:flex;flex-wrap:wrap;gap:.4rem;align-items:center}
+.av{width:22px;height:22px;border-radius:3px;vertical-align:middle;margin-right:.35rem;background:#3A3A3A}`;
 
 export function statusHeader(view: View): string {
   const snap = view.snapshot();

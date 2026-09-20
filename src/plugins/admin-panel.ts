@@ -5,7 +5,9 @@ import { acquireWebServer } from '../host/webserver.ts';
 import { parseOptionFields, renderOptionFields } from '../host/options-form.ts';
 import { definePlugin, type PluginStatus } from '../host/plugin.ts';
 import { sponsorUrlProblem } from '../host/sponsor.ts';
+import { SteamClient, type SteamSummary } from '../host/steam.ts';
 import { RconError } from '../rcon/client.ts';
+import type { Ban } from '../rcon/types.ts';
 import {
   STYLE,
   esc,
@@ -23,6 +25,8 @@ interface Options {
   auditRows: number;
   /** Lines of recent host activity to show. */
   logLines: number;
+  /** Override the Steam Web API base URL (tests). Empty = the real API. */
+  steamBaseUrl: string;
 }
 
 /** Best-effort: pull ids/names out of a loosely shaped catalog response. */
@@ -117,7 +121,7 @@ export default definePlugin<Options>({
   name: 'admin-panel',
   description:
     'Password-protected web admin: dashboard, player/server actions, plugin management (toggle, configure, restart), activity log',
-  defaults: { path: '/admin', auditRows: 15, logLines: 40 },
+  defaults: { path: '/admin', auditRows: 15, logLines: 40, steamBaseUrl: '' },
   setup(ctx) {
     if (!ctx.host.httpPort) {
       ctx.log.warn('HTTP_PORT is not set; plugin is idle');
@@ -148,6 +152,32 @@ export default definePlugin<Options>({
     }
     const web = acquireWebServer(ctx.host.httpPort, ctx.log, ctx.host.httpBind ?? '0.0.0.0');
 
+    // Steam names and avatars next to bare SteamID64s (players, bans, reserved slots) when a key is
+    // set. Cached an hour; a slow Steam answer never holds the page up: cached names are used instead.
+    const steam = ctx.host.steamApiKey
+      ? new SteamClient(ctx.host.steamApiKey, {
+          ttlMs: 3_600_000,
+          ...(ctx.options.steamBaseUrl ? { baseUrl: ctx.options.steamBaseUrl } : {}),
+        })
+      : null;
+    const lookup = async (ids: string[]): Promise<Map<string, SteamSummary>> => {
+      const unique = [...new Set(ids.filter(Boolean))];
+      if (!steam || !unique.length) return new Map();
+      let timer: NodeJS.Timeout | undefined;
+      const slow = new Promise<null>((resolve) => {
+        timer = setTimeout(() => resolve(null), 2500);
+      });
+      try {
+        const fresh = await Promise.race([steam.summaries(unique), slow]);
+        return fresh ?? steam.cachedSummaries(unique);
+      } catch (e) {
+        ctx.log.warn('Steam lookup failed', e);
+        return steam.cachedSummaries(unique);
+      } finally {
+        if (timer) clearTimeout(timer);
+      }
+    };
+
     const deny = (res: http.ServerResponse): void => {
       res.writeHead(401, {
         'WWW-Authenticate': 'Basic realm="wardogs-plugins admin"',
@@ -177,6 +207,8 @@ export default definePlugin<Options>({
       let auditHtml = '<p class="muted">unavailable</p>';
       let bansHtml = '<p class="muted">unavailable</p>';
       let slotsHtml = '<p class="muted">unavailable</p>';
+      let bans: Ban[] | null = null;
+      let slots: string[] | null = null;
       if (snap) {
         const [m, l, a, b, s] = await Promise.allSettled([
           ctx.rcon.catalogMaps(),
@@ -197,25 +229,46 @@ export default definePlugin<Options>({
               e.detail,
             ]),
           );
-        if (b.status === 'fulfilled')
-          bansHtml = b.value.bans.length
-            ? `<table><thead><tr><th>SteamID</th><th>When</th><th>By</th><th>Reason</th><th></th></tr></thead><tbody>${b.value.bans
-                .map(
-                  (ban) =>
-                    `<tr><td>${esc(ban.steamId)}</td><td>${esc(ban.bannedAtUtc.slice(0, 16).replace('T', ' '))}</td><td>${esc(ban.bannedBy)}</td><td>${esc(ban.reason)}</td><td>${form(`<input type="hidden" name="steamId" value="${esc(ban.steamId)}"><button class="soft" name="action" value="unban">Unban</button>`, 'inline')}</td></tr>`,
-                )
-                .join('')}</tbody></table>`
-            : '<p class="muted">no bans</p>';
-        if (s.status === 'fulfilled')
-          slotsHtml = s.value.reservedSlots.length
-            ? `<table><tbody>${s.value.reservedSlots
-                .map(
-                  (id) =>
-                    `<tr><td>${esc(id)}</td><td>${canUnreserve ? form(`<input type="hidden" name="steamId" value="${esc(id)}"><button class="soft" name="action" value="unreserve">Remove</button>`, 'inline') : ''}</td></tr>`,
-                )
-                .join('')}</tbody></table>`
-            : '<p class="muted">no reserved slots</p>';
+        if (b.status === 'fulfilled') bans = b.value.bans;
+        if (s.status === 'fulfilled') slots = s.value.reservedSlots;
       }
+
+      // Steam identities for every id on the page.
+      const profiles = await lookup([
+        ...(snap?.players ?? []).map((p) => p.steamId),
+        ...(bans ?? []).map((ban) => ban.steamId),
+        ...(slots ?? []),
+      ]);
+      const avatar = (id: string): string => {
+        const url = profiles.get(id)?.avatar;
+        return url ? `<img class="av" src="${esc(url)}" alt="" loading="lazy">` : '';
+      };
+      /** Avatar + Steam persona name (or the bare id when unknown) + the id as a tag. */
+      const identity = (id: string): string => {
+        const name = profiles.get(id)?.name;
+        return name
+          ? `${avatar(id)}<b>${esc(name)}</b><br><span class="tag">${esc(id)}</span>`
+          : `<span class="tag">${esc(id)}</span>`;
+      };
+
+      if (bans)
+        bansHtml = bans.length
+          ? `<table><thead><tr><th>Player</th><th>When</th><th>By</th><th>Reason</th><th></th></tr></thead><tbody>${bans
+              .map(
+                (ban) =>
+                  `<tr><td>${identity(ban.steamId)}</td><td>${esc(ban.bannedAtUtc.slice(0, 16).replace('T', ' '))}</td><td>${esc(ban.bannedBy)}</td><td>${esc(ban.reason)}</td><td>${form(`<input type="hidden" name="steamId" value="${esc(ban.steamId)}"><button class="soft" name="action" value="unban">Unban</button>`, 'inline')}</td></tr>`,
+              )
+              .join('')}</tbody></table>`
+          : '<p class="muted">no bans</p>';
+      if (slots)
+        slotsHtml = slots.length
+          ? `<table><tbody>${slots
+              .map(
+                (id) =>
+                  `<tr><td>${identity(id)}</td><td>${canUnreserve ? form(`<input type="hidden" name="steamId" value="${esc(id)}"><button class="soft" name="action" value="unreserve">Remove</button>`, 'inline') : ''}</td></tr>`,
+              )
+              .join('')}</tbody></table>`
+          : '<p class="muted">no reserved slots</p>';
       const datalist = (id: string, values: string[]): string =>
         values.length
           ? `<datalist id="${id}">${values.map((v) => `<option value="${esc(v)}">`).join('')}</datalist>`
@@ -226,7 +279,7 @@ export default definePlugin<Options>({
         .map(
           (
             p,
-          ) => `<tr><td><b>${esc(p.name)}</b><br><span class="tag">${esc(p.steamId)}</span></td><td>${esc(p.faction)}</td><td>${p.kills}/${p.deaths}</td><td>${p.cash}</td><td>${p.pingMs}</td>
+          ) => `<tr><td>${avatar(p.steamId)}<b>${esc(p.name)}</b><br><span class="tag">${esc(p.steamId)}</span>${profiles.get(p.steamId)?.name && profiles.get(p.steamId)!.name !== p.name ? ` <span class="def">Steam: ${esc(profiles.get(p.steamId)!.name)}</span>` : ''}</td><td>${esc(p.faction)}</td><td>${p.kills}/${p.deaths}</td><td>${p.cash}</td><td>${p.pingMs}</td>
 <td>${form(
             `<input type="hidden" name="steamId" value="${esc(p.steamId)}"><input type="text" name="text" placeholder="message / reason">
 <button name="action" value="dm">DM</button><button class="soft" name="action" value="kick">Kick</button><button class="soft" name="action" value="kill">Kill</button><button class="warn" name="action" value="ban">Ban</button>` +
@@ -274,10 +327,10 @@ export default definePlugin<Options>({
       const activity = ctx.recentLog(Number(ctx.options.logLines)).map(formatLogLine).join('\n');
 
       return `<!doctype html><html><head><meta charset="utf-8"><meta name="color-scheme" content="dark"><title>Admin · ${esc(status?.serverName ?? 'WARDOGS')}</title><style>${STYLE}</style></head><body>
-${statusHeader(ctx)}
+<div data-live="status">${statusHeader(ctx)}</div>
 ${msg ? `<div class="flash">${esc(msg)}</div>` : ''}
 <h2>Players online</h2>
-<table><thead><tr><th>Player</th><th>Faction</th><th>K/D</th><th>Cash</th><th>Ping</th><th>Actions</th></tr></thead><tbody>${playerRows || '<tr><td colspan="6" class="muted">nobody on</td></tr>'}</tbody></table>
+<div data-live="players"><table><thead><tr><th>Player</th><th>Faction</th><th>K/D</th><th>Cash</th><th>Ping</th><th>Actions</th></tr></thead><tbody>${playerRows || '<tr><td colspan="6" class="muted">nobody on</td></tr>'}</tbody></table></div>
 <h2>Server</h2>
 <div class="grid">
 ${form(`<b>Broadcast</b><input type="text" name="text" placeholder="message to everyone" style="flex:1"><button name="action" value="broadcast">Send</button>`)}
@@ -289,14 +342,14 @@ ${canReserve ? form(`<b>Reserved slot</b><input type="text" name="steamId" place
 ${canSponsor ? form(`<b>Sponsor banner</b><input type="text" name="imageUrl" placeholder="https://i.ibb.co/…/banner.png (1024×256)" style="flex:1"><button name="action" value="sponsor">Set</button>`) : ''}
 </div>
 <h2>Automation</h2> <span class="muted">${enabledCount} of ${all.length} plugins running · toggles and option changes take effect immediately and are saved to ${esc(ctx.host.pluginsFile)}</span>
-<table><thead><tr><th>Plugin</th><th>State</th><th>What it does</th><th></th></tr></thead><tbody>${pluginRows}</tbody></table>
+<div data-live="automation"><table><thead><tr><th>Plugin</th><th>State</th><th>What it does</th><th></th></tr></thead><tbody>${pluginRows}</tbody></table></div>
 <h2>Recent activity</h2>
-<pre class="log">${activity || '<span class="muted">nothing logged yet</span>'}</pre>
-<div class="grid"><div><h2>Bans</h2>${bansHtml}</div><div><h2>Reserved slots</h2>${slotsHtml}</div></div>
-<h2>Audit log</h2>${auditHtml}
-<div class="grid"><div><h2>All-time leaderboard</h2>${await leaderboardSection(ctx)}</div><div><h2>Regulars</h2>${await regularsSection(ctx)}</div></div>
-<h2>Average players by hour (last 24 h, ${esc(Intl.DateTimeFormat().resolvedOptions().timeZone)})</h2>${await hourlySection(ctx)}
-<p class="muted">wardogs-plugins admin · signed in as <b>${esc(who)}</b> · ${users.length ? `${users.length} named admin(s)` : 'shared password'} · ${canFaction ? 'faction moves enabled' : 'faction moves not supported by this server'} · auto-refreshes every 30 s while no editor is open</p>
+<div data-live="activity"><pre class="log">${activity || '<span class="muted">nothing logged yet</span>'}</pre></div>
+<div class="grid" data-live="lists"><div><h2>Bans</h2>${bansHtml}</div><div><h2>Reserved slots</h2>${slotsHtml}</div></div>
+<h2>Audit log</h2><div data-live="audit">${auditHtml}</div>
+<div class="grid" data-live="stats"><div><h2>All-time leaderboard</h2>${await leaderboardSection(ctx)}</div><div><h2>Regulars</h2>${await regularsSection(ctx)}</div></div>
+<h2>Average players by hour (last 24 h, ${esc(Intl.DateTimeFormat().resolvedOptions().timeZone)})</h2><div data-live="hourly">${await hourlySection(ctx)}</div>
+<p class="muted">wardogs-plugins admin · signed in as <b>${esc(who)}</b> · ${users.length ? `${users.length} named admin(s)` : 'shared password'} · ${canFaction ? 'faction moves enabled' : 'faction moves not supported by this server'} · ${steam ? 'Steam names on' : 'Steam names off (set STEAM_API_KEY)'} · updates in place every 8 s; anything you are editing is left alone</p>
 <script>
 (function(){
 var K='wdp:'+location.pathname;
@@ -307,8 +360,29 @@ try{var s=JSON.parse(sessionStorage.getItem(K)||'{}');(s.open||[]).forEach(funct
 window.addEventListener('scroll',save,{passive:true});
 document.addEventListener('toggle',save,true);
 document.addEventListener('submit',save,true);
-// Refresh only when nothing is being edited: no focused field and no open drawer.
-setInterval(function(){var a=document.activeElement;if(a&&/INPUT|TEXTAREA|SELECT/.test(a.tagName))return;if(document.querySelector('details[open]'))return;save();location.replace(location.pathname)},30000);
+// Live update: fetch the page in the background and swap only the sections whose HTML changed. A
+// section with a focused or half-typed field, or an open drawer, is left alone: nothing jumps or resets.
+var busy=false;
+function editing(el){
+  var a=document.activeElement;
+  if(a&&a!==document.body&&el.contains(a)&&/INPUT|TEXTAREA|SELECT|BUTTON/.test(a.tagName))return true;
+  if(el.querySelector('details[open]'))return true;
+  return [].some.call(el.querySelectorAll('input[type=text],input[type=number],textarea'),function(i){return i.value!==i.defaultValue});
+}
+function refresh(){
+  if(busy||document.hidden)return;
+  busy=true;
+  fetch(location.pathname,{credentials:'same-origin',cache:'no-store'}).then(function(r){return r.ok?r.text():Promise.reject(r.status)}).then(function(html){
+    var doc=new DOMParser().parseFromString(html,'text/html');
+    doc.querySelectorAll('[data-live]').forEach(function(n){
+      var cur=document.querySelector('[data-live="'+n.getAttribute('data-live')+'"]');
+      if(!cur||editing(cur))return;
+      if(cur.innerHTML!==n.innerHTML)cur.innerHTML=n.innerHTML;
+    });
+  }).catch(function(){}).then(function(){busy=false});
+}
+setInterval(refresh,8000);
+document.addEventListener('visibilitychange',function(){if(!document.hidden)refresh()});
 })();
 </script>
 </body></html>`;

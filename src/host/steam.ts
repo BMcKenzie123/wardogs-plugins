@@ -63,6 +63,17 @@ export class SteamClient {
     return result;
   }
 
+  /** Whatever is already cached and fresh for these ids; no network call. */
+  cachedSummaries(ids: string[]): Map<string, SteamSummary> {
+    const now = Date.now();
+    const result = new Map<string, SteamSummary>();
+    for (const id of ids) {
+      const cached = this.summaryCache.get(id);
+      if (cached && now - cached.at < this.ttlMs) result.set(id, cached.value);
+    }
+    return result;
+  }
+
   async bans(ids: string[]): Promise<Map<string, SteamBans>> {
     const now = Date.now();
     const result = new Map<string, SteamBans>();
