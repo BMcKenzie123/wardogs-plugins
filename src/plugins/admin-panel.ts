@@ -395,7 +395,7 @@ ${msg ? `<div class="flash">${esc(msg)}</div>` : ''}
 <h2>Server</h2>
 <div class="grid" data-live="server">
 ${form(`<b>Broadcast</b><input type="text" name="text" placeholder="message to everyone" style="flex:1"><button name="action" value="broadcast">Send</button>`)}
-${motdMessages.length ? form(`<b>MOTD</b><select name="text" style="flex:1;min-width:12rem">${motdMessages.map((m, i) => `<option${i === motdNext ? ' selected' : ''}>${esc(m)}</option>`).join('')}</select><button name="action" value="broadcast" title="Broadcast this MOTD line right now">Send now</button>`) : ''}
+${motdMessages.length ? form(`<b>MOTD</b><select name="text" style="flex:1;min-width:12rem">${motdMessages.map((m, i) => `<option${i === motdNext ? ' selected' : ''}>${esc(fill(m))}</option>`).join('')}</select><button name="action" value="broadcast" title="Broadcast this MOTD line right now">Send now</button>`) : ''}
 ${form(`<b>Change map</b><input type="text" name="map" list="maps" placeholder="map id" required><input type="text" name="experiences" placeholder="experiences (a+b)"><input type="text" name="lighting" list="lightings" placeholder="lighting"><button name="action" value="map">Change now</button>${datalist('maps', maps)}`)}
 ${form(`<b>Lighting</b><input type="text" name="lighting" list="lightings" placeholder="preset" required><button name="action" value="lighting">Set</button>${datalist('lightings', lightings)}`)}
 ${form(`<b>Match</b><button class="soft" name="action" value="restart">Restart</button><button class="warn" name="action" value="end" onclick="return confirm('End the current match?')">End match</button>`)}
@@ -485,11 +485,11 @@ document.addEventListener('visibilitychange',function(){if(!document.hidden)refr
       switch (action) {
         case 'broadcast':
           if (!text) return 'Nothing to broadcast.';
-          await ctx.rcon.broadcast(text);
+          await ctx.rcon.broadcast(fill(text));
           return 'Broadcast sent.';
         case 'dm':
           if (!text) return 'Type a message first.';
-          await ctx.rcon.message(steamId, text);
+          await ctx.rcon.message(steamId, fill(text));
           return `DM sent to${who}.`;
         case 'kick':
           await ctx.rcon.kick(steamId, text || undefined);

@@ -2,6 +2,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import motd from '../plugins/motd.ts';
+import { setTemplateGlobals } from '../host/template.ts';
 import { player, sleep, startMockServer, waitFor } from './mock-server.ts';
 import { makeHost, requestsTo, seedState } from './helpers.ts';
 
@@ -24,14 +25,19 @@ test('motd: a restart does not push the next line a full interval away', async (
 
 test('motd: never sent before means one full interval first; nothing while the server is empty', async () => {
   const s = await startMockServer();
-  const { host } = makeHost(s, [motd], { motd: { intervalMinutes: 0.005, messages: ['hi'] } }); // 300 ms
+  const { host } = makeHost(s, [motd], { motd: { intervalMinutes: 0.005, messages: ['hi {discord}'] } }); // 300 ms
+  setTemplateGlobals({ discord: 'discord.gg/x' });
   try {
     await host.start();
     await sleep(500);
     assert.equal(requestsTo(s, 'POST', '/v1/broadcast').length, 0, 'empty server: no MOTD');
     s.state.players.push(player('a'));
     await waitFor(() => requestsTo(s, 'POST', '/v1/broadcast').length >= 1, 3000, 'MOTD once someone is on');
+    assert.deepEqual(JSON.parse(requestsTo(s, 'POST', '/v1/broadcast')[0]!.body), {
+      message: 'hi discord.gg/x',
+    });
   } finally {
+    setTemplateGlobals({});
     await host.stop();
     await s.close();
   }

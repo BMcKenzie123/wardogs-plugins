@@ -1,4 +1,5 @@
 import { definePlugin } from '../host/plugin.ts';
+import { fill } from '../host/template.ts';
 
 interface Options {
   intervalMinutes: number;
@@ -36,7 +37,7 @@ export default definePlugin<Options>({
       const s = ctx.snapshot();
       if (!s || s.status.players.current < Number(ctx.options.minPlayers)) return;
       const i = ctx.state.get<number>('index', 0);
-      const line = messages[i % messages.length]!;
+      const line = fill(messages[i % messages.length]!); // {discord} and other globals
       await ctx.rcon.broadcast(line);
       ctx.state.set('index', i + 1);
       ctx.state.set('lastSentAt', Date.now());
