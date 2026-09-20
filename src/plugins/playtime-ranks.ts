@@ -54,12 +54,10 @@ export default definePlugin<Options>({
     ctx.on('player.join', ({ player, snapshot }) =>
       check(player.steamId, player.name, snapshot.status.serverName, true),
     );
-    ctx.on('player.leave', async ({ player, sessionSeconds, snapshot }) => {
-      if (sessionSeconds !== null) {
-        const minutes = ctx.state.get<Record<string, number>>('minutes', {});
-        minutes[player.steamId] = (minutes[player.steamId] ?? 0) + sessionSeconds / 60;
-        ctx.state.set('minutes', minutes);
-      }
+    ctx.on('player.leave', async ({ player, sessionSeconds, observedSeconds, snapshot }) => {
+      const minutes = ctx.state.get<Record<string, number>>('minutes', {});
+      minutes[player.steamId] = (minutes[player.steamId] ?? 0) + (sessionSeconds ?? observedSeconds) / 60;
+      ctx.state.set('minutes', minutes);
       await check(player.steamId, player.name, snapshot.status.serverName, false);
     });
     ctx.log.info(`${ctx.options.ranks.length} ranks (${mode})`);

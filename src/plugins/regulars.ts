@@ -102,11 +102,11 @@ export default definePlugin<Options>({
       await writeLeaderboard();
     });
 
-    ctx.on('player.leave', async ({ player, sessionSeconds }) => {
+    ctx.on('player.leave', async ({ player, sessionSeconds, observedSeconds }) => {
       const all = players();
       const rec = all[player.steamId];
       if (!rec) return;
-      if (sessionSeconds !== null) rec.minutes += sessionSeconds / 60;
+      rec.minutes += (sessionSeconds ?? observedSeconds) / 60;
       rec.lastSeen = new Date().toISOString();
       ctx.state.set('players', all);
       await writeLeaderboard();

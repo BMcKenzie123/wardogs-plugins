@@ -295,7 +295,7 @@ ${canSponsor ? form(`<b>Sponsor banner</b><input type="text" name="imageUrl" pla
 <div class="grid"><div><h2>Bans</h2>${bansHtml}</div><div><h2>Reserved slots</h2>${slotsHtml}</div></div>
 <h2>Audit log</h2>${auditHtml}
 <div class="grid"><div><h2>All-time leaderboard</h2>${await leaderboardSection(ctx)}</div><div><h2>Regulars</h2>${await regularsSection(ctx)}</div></div>
-<h2>Average players by hour (last 24 h)</h2>${await hourlySection(ctx)}
+<h2>Average players by hour (last 24 h, ${esc(Intl.DateTimeFormat().resolvedOptions().timeZone)})</h2>${await hourlySection(ctx)}
 <p class="muted">wardogs-plugins admin · signed in as <b>${esc(who)}</b> · ${users.length ? `${users.length} named admin(s)` : 'shared password'} · ${canFaction ? 'faction moves enabled' : 'faction moves not supported by this server'} · auto-refreshes every 30 s while no editor is open</p>
 <script>
 (function(){

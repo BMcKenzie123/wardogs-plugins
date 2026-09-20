@@ -9,7 +9,14 @@ export interface Events {
   'server.up': { snapshot: Snapshot; downForMs: number | null };
   'server.down': { error: Error };
   'player.join': { player: Player; snapshot: Snapshot };
-  'player.leave': { player: Player; snapshot: Snapshot; sessionSeconds: number | null };
+  'player.leave': {
+    player: Player;
+    snapshot: Snapshot;
+    /** Exact session length, or null when the join happened while the host was not watching. */
+    sessionSeconds: number | null;
+    /** Time the host actually saw the player on: equals sessionSeconds when known, else a lower bound. */
+    observedSeconds: number;
+  };
   'match.map': { from: Status; to: Status; snapshot: Snapshot };
   'match.new': { snapshot: Snapshot; previous: Snapshot };
   'match.lighting': { from: string; to: string; snapshot: Snapshot };

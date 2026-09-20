@@ -9,6 +9,8 @@ export interface SessionLine {
   steamId: string;
   name: string;
   sessionSeconds: number | null;
+  /** Time the host saw the player on (lower bound when sessionSeconds is null). Older lines lack it. */
+  observedSeconds?: number;
   kills: number;
   deaths: number;
 }
@@ -88,7 +90,7 @@ export function playtimeBySteamId(sessions: SessionLine[]): Map<string, PlayerTo
       sessions: 0,
     };
     row.name = session.name;
-    row.minutes += (session.sessionSeconds ?? 0) / 60;
+    row.minutes += (session.sessionSeconds ?? session.observedSeconds ?? 0) / 60;
     row.kills += session.kills;
     row.deaths += session.deaths;
     row.sessions += 1;

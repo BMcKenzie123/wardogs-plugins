@@ -67,14 +67,18 @@ export class RconClient {
     this.cfg = cfg;
     this.logger = opts.logger;
     this.baseUrl = `${cfg.scheme}://${cfg.host}:${cfg.port}`;
+    // One keep-alive socket for everything: requests queue behind each other instead of opening
+    // parallel connections, so the game server sees a single source port (and one ACCEPT in its audit
+    // log) rather than a new one per call.
+    const pool = { keepAlive: true, keepAliveMsecs: 10_000, maxSockets: 1, maxFreeSockets: 1 };
     this.agent =
       cfg.scheme === 'https'
         ? new https.Agent({
-            keepAlive: true,
+            ...pool,
             rejectUnauthorized: !cfg.tlsInsecure,
             ca: cfg.caFile ? fs.readFileSync(cfg.caFile) : undefined,
           })
-        : new http.Agent({ keepAlive: true });
+        : new http.Agent(pool);
   }
   /** Drop pooled keep-alive sockets. Call from one-shot processes (the CLI) once you're done. */
   close(): void {

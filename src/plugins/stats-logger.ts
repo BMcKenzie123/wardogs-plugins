@@ -25,13 +25,14 @@ export default definePlugin({
           factionScores: snapshot.status.factionScores,
         });
     });
-    ctx.on('player.leave', ({ player, sessionSeconds }) =>
+    ctx.on('player.leave', ({ player, sessionSeconds, observedSeconds }) =>
       write({
         t: Date.now(),
         event: 'session',
         steamId: player.steamId,
         name: player.name,
         sessionSeconds,
+        observedSeconds,
         kills: player.kills,
         deaths: player.deaths,
       }),

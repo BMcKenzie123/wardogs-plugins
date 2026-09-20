@@ -158,10 +158,10 @@ export default definePlugin<Options>({
         ),
       );
     if (wanted.has('player.leave'))
-      ctx.on('player.leave', ({ player, snapshot, sessionSeconds }) =>
+      ctx.on('player.leave', ({ player, snapshot, sessionSeconds, observedSeconds }) =>
         post(
           'Player left',
-          `**${player.name}** (${player.steamId}) after ${mmss(sessionSeconds)} — ${player.kills}K/${player.deaths}D. Now ${playerCount(snapshot)}.`,
+          `**${player.name}** (${player.steamId}) after ${mmss(sessionSeconds ?? observedSeconds)} — ${player.kills}K/${player.deaths}D. Now ${playerCount(snapshot)}.`,
           COLORS.grey,
         ),
       );

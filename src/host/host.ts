@@ -15,6 +15,19 @@ interface Registered {
   fn: Handler;
 }
 
+interface SavedSession {
+  joinedAt: number | null;
+  firstSeenAt: number;
+}
+
+interface SavedSessions {
+  at: number;
+  players: Record<string, SavedSession>;
+}
+
+/** A saved roster older than this no longer says anything about who is on now. */
+const SESSION_RESTORE_WINDOW_MS = 15 * 60_000;
+
 /** Everything one running plugin has registered, so it can be switched off cleanly. */
 interface ActivePlugin {
   plugin: AnyPlugin;
@@ -47,7 +60,12 @@ export class PluginHost {
   private up: boolean | undefined;
   private downSince?: number;
   private joinedAt = new Map<string, number | null>();
+  private firstSeenAt = new Map<string, number>();
   private lastSeen = new Map<string, Player>();
+  /** Who was on at the last good poll, kept on disk so a restart or short outage loses nobody's session. */
+  private sessions: SavedSessions | null = null;
+  private sessionsFile: string;
+  private sessionsWarned = false;
   private auditKeys = new Set<string>();
   private auditSeeded = false;
 
@@ -65,10 +83,12 @@ export class PluginHost {
     this.registry = args.registry;
     this.logger = args.logger;
     this.logBuffer = args.logBuffer;
+    this.sessionsFile = path.join(args.config.dataDir, 'sessions.json');
   }
 
   async start(): Promise<void> {
     await fs.mkdir(this.config.dataDir, { recursive: true });
+    this.sessions = await this.loadSessions();
     // A few quick tries, then carry on: the web panel and everything else must come up even when the
     // game server is unreachable (or the RCON details are still placeholders). Re-checked on server.up.
     await this.refreshCapabilities(3);
@@ -368,6 +388,38 @@ export class PluginHost {
     };
   }
 
+  // ---------- sessions across restarts ----------
+
+  private async loadSessions(): Promise<SavedSessions | null> {
+    try {
+      const parsed = JSON.parse(await fs.readFile(this.sessionsFile, 'utf8')) as SavedSessions;
+      if (typeof parsed?.at === 'number' && parsed.players && typeof parsed.players === 'object')
+        return parsed;
+    } catch (e) {
+      if ((e as NodeJS.ErrnoException).code !== 'ENOENT') this.logger.warn('could not read sessions file', e);
+    }
+    return null;
+  }
+
+  /** The last-known roster, if it is recent enough to still describe who is on now. */
+  private recentSessions(now: number): Record<string, SavedSession> | null {
+    const saved = this.sessions;
+    if (!saved || now - saved.at > SESSION_RESTORE_WINDOW_MS) return null;
+    return saved.players;
+  }
+
+  private saveSessions(now: number): void {
+    const players: Record<string, SavedSession> = {};
+    for (const id of this.lastSeen.keys())
+      players[id] = { joinedAt: this.joinedAt.get(id) ?? null, firstSeenAt: this.firstSeenAt.get(id) ?? now };
+    this.sessions = { at: now, players };
+    fs.writeFile(this.sessionsFile, JSON.stringify(this.sessions)).catch((e: unknown) => {
+      if (this.sessionsWarned) return;
+      this.sessionsWarned = true;
+      this.logger.warn('could not write sessions file; sessions will not survive a restart', e);
+    });
+  }
+
   // ---------- polling ----------
 
   /** setTimeout chain (not setInterval) so a slow poll never overlaps the next one. */
@@ -396,19 +448,37 @@ export class PluginHost {
       this.latest = snap;
       if (!this.capsKnown && (await this.refreshCapabilities(1))) await this.recheckRequirements();
       // A baseline (first poll, or first poll after an outage) resets the roster we track, so players who
-      // came or went while we were blind never surface as join/leave events. Their session start is unknown.
+      // came or went while we were blind never surface as join/leave events. Whoever is still on and was
+      // on at the last good poll (before a restart or a short outage) keeps their session; anyone else
+      // has an unknown start and is credited from now.
       const baseline = this.previous === null;
       if (baseline) {
+        const kept = this.recentSessions(now);
         this.lastSeen.clear();
         this.joinedAt.clear();
-      }
-      for (const p of snap.players) {
-        if (!this.lastSeen.has(p.steamId)) this.joinedAt.set(p.steamId, baseline ? null : now);
-        this.lastSeen.set(p.steamId, p);
+        this.firstSeenAt.clear();
+        let restored = 0;
+        for (const p of snap.players) {
+          const known = kept?.[p.steamId];
+          if (known) restored += 1;
+          this.joinedAt.set(p.steamId, known ? known.joinedAt : null);
+          this.firstSeenAt.set(p.steamId, known ? known.firstSeenAt : now);
+          this.lastSeen.set(p.steamId, p);
+        }
+        if (restored) this.logger.info(`restored ${restored} session(s) from before the restart`);
+      } else {
+        for (const p of snap.players) {
+          if (!this.lastSeen.has(p.steamId)) {
+            this.joinedAt.set(p.steamId, now);
+            this.firstSeenAt.set(p.steamId, now);
+          }
+          this.lastSeen.set(p.steamId, p);
+        }
       }
       if (this.previous) await this.diff(this.previous, snap);
       await this.emit('tick', { snapshot: snap, previous: this.previous });
       this.previous = snap;
+      this.saveSessions(now);
     } catch (e) {
       const err = e instanceof Error ? e : new Error(String(e));
       if (this.up !== false) {
@@ -443,9 +513,11 @@ export class PluginHost {
           snapshot: next,
           sessionSeconds:
             start === null || start === undefined ? null : Math.max(0, (next.at - start) / 1000),
+          observedSeconds: Math.max(0, (next.at - (this.firstSeenAt.get(id) ?? next.at)) / 1000),
         });
         this.lastSeen.delete(id);
         this.joinedAt.delete(id);
+        this.firstSeenAt.delete(id);
       }
     const prior = new Set(old.players.map((p) => p.steamId));
     for (const p of next.players)

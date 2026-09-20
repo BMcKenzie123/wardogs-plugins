@@ -38,6 +38,8 @@ export interface Recorded {
   path: string;
   headers: http.IncomingHttpHeaders;
   body: string;
+  /** The client's source port; equal across requests when they share one keep-alive socket. */
+  port?: number;
 }
 
 export interface MockServer {
@@ -141,7 +143,7 @@ export async function startMockServer(
     const url = new URL(req.url ?? '/', 'http://mock');
     const path = url.pathname;
     // Record the raw URL (with query string and %-encoding) so tests can assert on exactly what was sent.
-    requests.push({ method, path: req.url ?? '/', headers: req.headers, body });
+    requests.push({ method, path: req.url ?? '/', headers: req.headers, body, port: req.socket.remotePort });
 
     const send = (code: number, payload: unknown): void => {
       res.writeHead(code, { 'Content-Type': 'application/json' });
