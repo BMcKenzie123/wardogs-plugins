@@ -15,6 +15,7 @@ import matchMvp from '../plugins/match-mvp.ts';
 import fillServer from '../plugins/fill-server.ts';
 import eventAnnouncer from '../plugins/event-announcer.ts';
 import seedThanks from '../plugins/seed-thanks.ts';
+import adminPanel from '../plugins/admin-panel.ts';
 import reservedSlotReward from '../plugins/reserved-slot-reward.ts';
 import comeback from '../plugins/comeback.ts';
 import killStreak from '../plugins/kill-streak.ts';
@@ -60,6 +61,7 @@ export const registry: Record<string, AnyPlugin> = Object.fromEntries(
     fillServer,
     eventAnnouncer,
     seedThanks,
+    adminPanel,
     reservedSlotReward,
     comeback,
     killStreak,

@@ -347,6 +347,11 @@
     "enabled": false,
     "path": "/"
   },
+  "admin-panel": {
+    "enabled": false,
+    "path": "/admin",
+    "auditRows": 15
+  },
   "health-endpoint": {
     "enabled": false,
     "path": "/healthz",

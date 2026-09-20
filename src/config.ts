@@ -19,6 +19,8 @@ export interface HostConfig {
   discordBotToken?: string;
   steamApiKey?: string;
   httpPort?: number;
+  /** Password for the admin-panel plugin (HTTP Basic auth). */
+  adminPassword?: string;
 }
 export interface PluginsFile {
   [pluginName: string]: { enabled?: boolean; [option: string]: unknown };
@@ -64,6 +66,7 @@ export function loadHostConfig(env: NodeJS.ProcessEnv = process.env): HostConfig
     discordBotToken: env.DISCORD_BOT_TOKEN || undefined,
     steamApiKey: env.STEAM_API_KEY || undefined,
     httpPort: env.HTTP_PORT ? num(env.HTTP_PORT, 0) || undefined : undefined,
+    adminPassword: env.ADMIN_PASSWORD || undefined,
   };
 }
 export function loadPluginsFile(path: string): PluginsFile {

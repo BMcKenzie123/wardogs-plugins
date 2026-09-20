@@ -436,6 +436,26 @@ export function fetchText(
   });
 }
 
+/** Any-method HTTP request with headers and body; never follows redirects. */
+export function httpRequest(
+  url: string,
+  opts: { method?: string; headers?: Record<string, string>; body?: string } = {},
+): Promise<{ status: number; body: string; headers: http.IncomingHttpHeaders }> {
+  return new Promise((resolve, reject) => {
+    const req = http.request(url, { method: opts.method ?? 'GET', headers: opts.headers ?? {} }, (res) => {
+      let body = '';
+      res.setEncoding('utf8');
+      res.on('data', (c: string) => {
+        body += c;
+      });
+      res.on('end', () => resolve({ status: res.statusCode ?? 0, body, headers: res.headers }));
+    });
+    req.on('error', reject);
+    if (opts.body) req.write(opts.body);
+    req.end();
+  });
+}
+
 /** Poll `pred` until it returns true or `timeoutMs` elapses. */
 export async function waitFor(pred: () => boolean, timeoutMs = 3000, label = 'condition'): Promise<void> {
   const deadline = Date.now() + timeoutMs;
