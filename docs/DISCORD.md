@@ -11,17 +11,17 @@ that goes into `DISCORD_INVITE` on the box and appears in every in-game message.
 
 ## Server settings
 
-| Setting               | Value                                                                                                                 |
-| --------------------- | --------------------------------------------------------------------------------------------------------------------- |
-| Name                  | TAW WARDOGS                                                                                                           |
-| Icon / banner         | The TAW WARDOGS banner artwork (same as the server row)                                                               |
-| Verification level    | **Medium** (registered on Discord for 5+ minutes). Blocks throwaway accounts without blocking new players.            |
-| Explicit media filter | Scan all members                                                                                                      |
-| Default notifications | Only @mentions                                                                                                        |
-| Community features    | On (enables rules screening, welcome screen, the report button)                                                       |
-| Rules screening       | On, using the rules below; a member must accept before posting                                                        |
-| Invite                | One permanent, no-expiry invite from `#welcome`. Vanity URL later if the server reaches Community level requirements. |
-| 2FA for moderation    | Required                                                                                                              |
+| Setting               | Value                                                                                                                                                              |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Name                  | TAW WARDOGS                                                                                                                                                        |
+| Icon / banner         | The WARDOGS lockup (wolf shield, WARDOGS, TAW bar): source https://files.catbox.moe/0p9zpb.jpg; the 1024×256 server-row cut is https://files.catbox.moe/n8i62r.png |
+| Verification level    | **Medium** (registered on Discord for 5+ minutes). Blocks throwaway accounts without blocking new players.                                                         |
+| Explicit media filter | Scan all members                                                                                                                                                   |
+| Default notifications | Only @mentions                                                                                                                                                     |
+| Community features    | On (enables rules screening, welcome screen, the report button)                                                                                                    |
+| Rules screening       | On, using the rules below; a member must accept before posting                                                                                                     |
+| Invite                | One permanent, no-expiry invite from `#welcome`. Vanity URL later if the server reaches Community level requirements.                                              |
+| 2FA for moderation    | Required                                                                                                                                                           |
 
 ## Channels
 
