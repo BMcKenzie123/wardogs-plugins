@@ -29,6 +29,10 @@ versions follow semver. Dates are the day the change reached the live TAW WARDOG
 - **New match without a match clock.** The xREALM build omits `matchSeconds` (and `scoreCap`), so match-end
   features never fired. `match.new` now also fires on a map change, a rotation pointer move, or every faction
   score returning to zero. Everything that displayed the clock copes with its absence; stale-match says so once.
+- **Message pacing (the outbox).** Everything plugins say to players goes through one queue: at most
+  `DM_PER_MINUTE` DMs (default 12) and `BROADCAST_PER_MINUTE` broadcasts (default 4) across all plugins, no
+  player DMed twice within `DM_GAP_SECONDS` (default 180), a bounded queue that drops the oldest when a plugin
+  goes wild. Admin DMs and broadcasts from the panel bypass it. Plugins never block on the queue.
 - **No write bursts around a rotation.** recruit-pitch sends at most `maxPerTick` DMs per poll (default 3)
   instead of everyone who crossed the threshold at once (67 in one second on 2026-09-24); weather-randomizer
   waits `delaySeconds` (default 90) after a new match before changing the lighting, so nothing is sent while

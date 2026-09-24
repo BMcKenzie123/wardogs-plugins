@@ -40,7 +40,16 @@ export function makeHost(
       tlsInsecure: false,
       timeoutMs: 500,
     }),
-    config: { pollMs: 20, auditPollMs: 30, dataDir, logLevel: 'error', pluginsFile, ...over },
+    config: {
+      pollMs: 20,
+      auditPollMs: 30,
+      dataDir,
+      logLevel: 'error',
+      pluginsFile,
+      // Unthrottled by default so plugin tests see their messages at once; outbox tests set their own limits.
+      outbox: { dmPerMinute: 1_000_000, broadcastPerMinute: 1_000_000, dmGapPerPlayerMs: 0 },
+      ...over,
+    },
     plugins: Object.fromEntries(plugins.map((p) => [p.name, { enabled: true, ...(options[p.name] ?? {}) }])),
     registry: Object.fromEntries(plugins.map((p) => [p.name, p])),
     logger: createLogger('error'),

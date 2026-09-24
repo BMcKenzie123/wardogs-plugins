@@ -17,7 +17,7 @@ import {
   recordTempBan,
   sweepExpiredTempBans,
 } from '../host/temp-bans.ts';
-import { RconError } from '../rcon/client.ts';
+import { RconError, type RconClient } from '../rcon/client.ts';
 import type { Ban } from '../rcon/types.ts';
 import {
   STYLE,
@@ -478,6 +478,9 @@ document.addEventListener('visibilitychange',function(){if(!document.hidden)refr
       );
     };
 
+    // Plugins' messages are paced through the host's outbox; an admin typing into the panel is not.
+    const direct: RconClient = (ctx.rcon as { raw?: RconClient }).raw ?? ctx.rcon;
+
     const act = async (fields: URLSearchParams, admin: string): Promise<string> => {
       const action = fields.get('action') ?? '';
       const steamId = (fields.get('steamId') ?? '').trim();
@@ -488,11 +491,11 @@ document.addEventListener('visibilitychange',function(){if(!document.hidden)refr
       switch (action) {
         case 'broadcast':
           if (!text) return 'Nothing to broadcast.';
-          await ctx.rcon.broadcast(fill(text));
+          await direct.broadcast(fill(text)); // an admin's message goes out now, ahead of the plugin queue
           return 'Broadcast sent.';
         case 'dm':
           if (!text) return 'Type a message first.';
-          await ctx.rcon.message(steamId, fill(text));
+          await direct.message(steamId, fill(text));
           return `DM sent to${who}.`;
         case 'kick':
           await ctx.rcon.kick(steamId, text || undefined);

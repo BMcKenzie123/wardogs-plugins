@@ -1,4 +1,5 @@
 import fs from 'node:fs';
+import type { OutboxConfig } from './host/outbox.ts';
 
 export interface RconConfig {
   host: string;
@@ -17,6 +18,8 @@ export interface HostConfig {
    * no leave/join events, no welcome DMs, no extra visits. Default 120 s.
    */
   reconnectGraceMs?: number;
+  /** Pacing for everything plugins say to players (DMs and broadcasts per minute, gap per player). */
+  outbox?: Partial<OutboxConfig>;
   dataDir: string;
   logLevel: 'debug' | 'info' | 'warn' | 'error';
   pluginsFile: string;
@@ -71,6 +74,11 @@ export function loadHostConfig(env: NodeJS.ProcessEnv = process.env): HostConfig
     pollMs: num(env.POLL_MS, 4000),
     auditPollMs: num(env.AUDIT_POLL_MS, 15000),
     reconnectGraceMs: num(env.RECONNECT_GRACE_MS, 120_000),
+    outbox: {
+      dmPerMinute: num(env.DM_PER_MINUTE, 12),
+      broadcastPerMinute: num(env.BROADCAST_PER_MINUTE, 4),
+      dmGapPerPlayerMs: num(env.DM_GAP_SECONDS, 180) * 1000,
+    },
     dataDir: env.DATA_DIR || './data',
     logLevel: level === 'debug' || level === 'warn' || level === 'error' ? level : 'info',
     pluginsFile: env.PLUGINS_FILE || './plugins.json',

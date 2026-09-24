@@ -6,6 +6,7 @@ import type { Capabilities, Player } from '../rcon/types.ts';
 import type { Events, EventName, Snapshot } from './events.ts';
 import type { LogBuffer, Logger } from './logger.ts';
 import type { AnyPlugin, PluginContext, PluginStatus, SessionInfo } from './plugin.ts';
+import { Outbox, governRcon, type GovernedRcon } from './outbox.ts';
 import { Store } from './store.ts';
 
 type Handler = (payload: never) => void | Promise<void>;
@@ -82,6 +83,8 @@ export class PluginHost {
   private sessionsWarned = false;
   private auditKeys = new Set<string>();
   private auditSeeded = false;
+  private outbox: Outbox;
+  private governed: GovernedRcon;
 
   constructor(args: {
     rcon: RconClient;
@@ -98,6 +101,14 @@ export class PluginHost {
     this.logger = args.logger;
     this.logBuffer = args.logBuffer;
     this.sessionsFile = path.join(args.config.dataDir, 'sessions.json');
+    // Everything plugins say to players goes through one paced queue; admin actions use `raw`.
+    this.outbox = new Outbox(args.config.outbox ?? {}, args.logger.child('outbox'));
+    this.governed = governRcon(args.rcon, this.outbox);
+  }
+
+  /** Waiting player messages and drops, for the panel. */
+  outboxStats(): { queued: number; dropped: number } {
+    return this.outbox.stats();
   }
 
   async start(): Promise<void> {
@@ -296,7 +307,7 @@ export class PluginHost {
     const owned: ActivePlugin = { plugin, handlers: [], cancels: [], stops: [], store };
     const ctx: PluginContext = {
       name,
-      rcon: this.rcon,
+      rcon: this.governed,
       log: this.logger.child(name),
       options: this.effectiveOptions(name),
       state: store,
@@ -647,6 +658,7 @@ export class PluginHost {
 
   async stop(): Promise<void> {
     this.stopped = true;
+    this.outbox.stop();
     if (this.pollTimer) clearTimeout(this.pollTimer);
     if (this.auditTimer) clearTimeout(this.auditTimer);
     for (const t of this.timers) clearTimeout(t);

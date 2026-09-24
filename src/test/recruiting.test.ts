@@ -38,6 +38,7 @@ function makeHost(
       dataDir,
       logLevel: 'error',
       pluginsFile: 'unused',
+      outbox: { dmPerMinute: 1_000_000, broadcastPerMinute: 1_000_000, dmGapPerPlayerMs: 0 },
       discordWebhookUrl,
     },
     plugins: { [plugin.name]: { enabled: true, ...options } },

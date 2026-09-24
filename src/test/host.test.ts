@@ -257,7 +257,14 @@ test('host: plugin with unmet `requires` is skipped; a throwing handler does not
       tlsInsecure: false,
       timeoutMs: 500,
     }),
-    config: { pollMs: 20, auditPollMs: 1000, dataDir, logLevel: 'error', pluginsFile: 'unused' },
+    config: {
+      pollMs: 20,
+      auditPollMs: 1000,
+      dataDir,
+      logLevel: 'error',
+      pluginsFile: 'unused',
+      outbox: { dmPerMinute: 1_000_000, broadcastPerMinute: 1_000_000, dmGapPerPlayerMs: 0 },
+    },
     plugins: {
       gated: { enabled: true },
       thrower: { enabled: true },
