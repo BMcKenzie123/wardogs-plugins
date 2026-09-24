@@ -74,6 +74,8 @@ export class PluginHost {
   /** Players who vanished during a reconnect window; a leave fires only if they do not come back. */
   private pendingLeaves = new Map<string, { player: Player; vanishedAt: number }>();
   private graceUntil = 0;
+  /** Roster size when the current reconnect window opened; 0 when no window is open. */
+  private graceRoster = 0;
   /** Who was on at the last good poll, kept on disk so a restart or short outage loses nobody's session. */
   private sessions: SavedSessions | null = null;
   private sessionsFile: string;
@@ -503,6 +505,13 @@ export class PluginHost {
       // A map change (WARDOGS drops everyone and they reconnect) or a mass drop opens a reconnect window:
       // leaves are held and a player who returns inside it keeps their session, with no join event.
       if (this.previous && now >= this.graceUntil) {
+        if (this.graceRoster) {
+          // The window just closed: the record of how this rotation went, for the next "was that normal?".
+          this.logger.info(
+            `reconnect window closed: ${snap.players.length} on now, ${this.graceRoster} before, ${this.pendingLeaves.size} did not come back`,
+          );
+          this.graceRoster = 0;
+        }
         const before = this.previous.players.length;
         const after = snap.players.length;
         const mapChanged = this.previous.status.map !== snap.status.map;
@@ -510,6 +519,7 @@ export class PluginHost {
         if (mapChanged || massDrop) {
           const grace = this.config.reconnectGraceMs ?? 120_000;
           this.graceUntil = now + grace;
+          this.graceRoster = before;
           this.logger.info(
             `${mapChanged ? `map change to ${snap.status.map}` : `${before - after} of ${before} players dropped`}: holding leave/join events for ${Math.round(grace / 1000)} s while players reconnect`,
           );
