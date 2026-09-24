@@ -8,6 +8,8 @@ interface Options {
   minKills: number;
   /** Re-pitch the same player after this many days. 0 = once, ever. */
   repeatAfterDays: number;
+  /** At most this many pitches per poll, so a full server never gets a burst (67 in one second, 2026-09-24). */
+  maxPerTick: number;
   message: string;
 }
 
@@ -22,6 +24,7 @@ export default definePlugin<Options>({
     afterMinutes: 15,
     minKills: 0,
     repeatAfterDays: 7,
+    maxPerTick: 3,
     message:
       'Enjoying {server}, {name}? We are recruiting — join the Discord and play with the regulars: discord.gg/your-invite',
   },
@@ -36,7 +39,10 @@ export default definePlugin<Options>({
       const minMs = Number(ctx.options.afterMinutes) * 60_000;
       const repeatMs = Number(ctx.options.repeatAfterDays) * 86_400_000;
       const pitched = ctx.state.get<Record<string, string>>('pitched', {});
+      const cap = Math.max(1, Number(ctx.options.maxPerTick) || 3);
+      let sent = 0;
       for (const p of snapshot.players) {
+        if (sent >= cap) break; // the rest get theirs on the next polls
         let start = since.get(p.steamId);
         if (start === undefined) {
           start = now;
@@ -58,6 +64,7 @@ export default definePlugin<Options>({
             kills: p.kills,
           }),
         );
+        sent += 1;
         pitched[p.steamId] = new Date(now).toISOString();
         ctx.state.set('pitched', pitched);
         ctx.log.info(`pitched ${p.name} (${p.steamId}) after ${Math.round((now - start) / 60_000)} min`);

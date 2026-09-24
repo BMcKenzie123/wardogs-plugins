@@ -144,7 +144,7 @@ test('weather-randomizer: weighted pick and a fresh lighting on match.new', asyn
 
   const s = await startMockServer();
   const { host } = makeHost(s, [weatherRandomizer], {
-    'weather-randomizer': { lightings: ['DayClear', 'Night'], excludeCurrent: true },
+    'weather-randomizer': { lightings: ['DayClear', 'Night'], excludeCurrent: true, delaySeconds: 0 },
   });
   try {
     await host.start();

@@ -284,3 +284,21 @@ test('regulars: play time accrues every poll while the player is on, not only wh
   assert.ok((state.players.r?.minutes ?? 0) > 0.003, `minutes accrued while on: ${state.players.r?.minutes}`);
   assert.ok((state.players.r?.minutes ?? 0) < 0.05, 'and not more than the time watched');
 });
+
+test('recruit-pitch: a full server is pitched a few per poll, never in one burst', async () => {
+  const roster = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j'].map((id) => player(id));
+  const s = await startMockServer({ state: { players: roster } });
+  const { host } = makeHost(s, recruitPitch, { afterMinutes: 0.0005, maxPerTick: 4, message: 'hi {name}' }); // 30 ms
+  try {
+    await host.start();
+    const dms = () => s.requests.filter((r) => r.method === 'POST' && r.path.endsWith('/message'));
+    await waitFor(() => dms().length >= 4, 2000, 'first batch');
+    assert.equal(dms().length, 4, 'capped per poll');
+    await waitFor(() => dms().length === 10, 3000, 'everyone pitched over the next polls');
+    await sleep(80);
+    assert.equal(dms().length, 10, 'and nobody twice');
+  } finally {
+    await host.stop();
+    await s.close();
+  }
+});

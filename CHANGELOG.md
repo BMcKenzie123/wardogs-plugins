@@ -29,6 +29,10 @@ versions follow semver. Dates are the day the change reached the live TAW WARDOG
 - **New match without a match clock.** The xREALM build omits `matchSeconds` (and `scoreCap`), so match-end
   features never fired. `match.new` now also fires on a map change, a rotation pointer move, or every faction
   score returning to zero. Everything that displayed the clock copes with its absence; stale-match says so once.
+- **No write bursts around a rotation.** recruit-pitch sends at most `maxPerTick` DMs per poll (default 3)
+  instead of everyone who crossed the threshold at once (67 in one second on 2026-09-24); weather-randomizer
+  waits `delaySeconds` (default 90) after a new match before changing the lighting, so nothing is sent while
+  players are still loading in.
 - motd: the cadence survives restarts and saves (next line due relative to the last send); every send is logged.
 - Copy: in-game lines say "TAW WARDOGS NA" instead of expanding `{server}` to the full browser title.
 
