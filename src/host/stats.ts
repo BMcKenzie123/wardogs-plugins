@@ -19,7 +19,7 @@ export interface SessionLine {
 export interface SnapshotLine {
   t: number;
   map: string;
-  matchSeconds: number;
+  matchSeconds?: number;
   players: Player[];
   factionScores: FactionScore[];
 }

@@ -12,6 +12,11 @@ export interface RconConfig {
 export interface HostConfig {
   pollMs: number;
   auditPollMs: number;
+  /**
+   * After a map change or a mass drop, players who reappear within this window are the same session:
+   * no leave/join events, no welcome DMs, no extra visits. Default 120 s.
+   */
+  reconnectGraceMs?: number;
   dataDir: string;
   logLevel: 'debug' | 'info' | 'warn' | 'error';
   pluginsFile: string;
@@ -65,6 +70,7 @@ export function loadHostConfig(env: NodeJS.ProcessEnv = process.env): HostConfig
   return {
     pollMs: num(env.POLL_MS, 4000),
     auditPollMs: num(env.AUDIT_POLL_MS, 15000),
+    reconnectGraceMs: num(env.RECONNECT_GRACE_MS, 120_000),
     dataDir: env.DATA_DIR || './data',
     logLevel: level === 'debug' || level === 'warn' || level === 'error' ? level : 'info',
     pluginsFile: env.PLUGINS_FILE || './plugins.json',

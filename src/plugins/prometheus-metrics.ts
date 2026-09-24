@@ -41,7 +41,8 @@ export default definePlugin<Options>({
           const { status, players } = snapshot;
           gauge('wardogs_players', 'Connected players', status.players.current);
           gauge('wardogs_players_max', 'Player slots', status.players.max);
-          gauge('wardogs_match_seconds', 'Seconds into the current match', status.matchSeconds);
+          if (typeof status.matchSeconds === 'number')
+            gauge('wardogs_match_seconds', 'Seconds into the current match', status.matchSeconds);
           gauge('wardogs_score_tick', 'Current score tick period', status.scoreTick.current);
           const pings = players.map((player) => player.pingMs);
           gauge(

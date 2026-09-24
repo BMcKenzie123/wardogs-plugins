@@ -124,12 +124,13 @@ test('host: match.map / match.new / match.lighting / score.changed', async () =>
     const mapEv = of(seen, 'match.map')[0]!;
     assert.equal(mapEv.from.map, 'Kavkazi');
     assert.equal(mapEv.to.map, 'Europe');
+    assert.equal(of(seen, 'match.new').length, 1, 'a map change is a new match (level load)');
 
     s.state.matchSeconds = 5;
-    await waitFor(() => of(seen, 'match.new').length === 1, 2000, 'match.new');
+    await waitFor(() => of(seen, 'match.new').length === 2, 2000, 'match.new on a timer reset');
     s.state.matchSeconds = 50;
     await sleep(60);
-    assert.equal(of(seen, 'match.new').length, 1, 'increasing matchSeconds is not a new match');
+    assert.equal(of(seen, 'match.new').length, 2, 'increasing matchSeconds is not a new match');
 
     s.state.lighting = 'Night';
     await waitFor(() => of(seen, 'match.lighting').length === 1, 2000, 'lighting');

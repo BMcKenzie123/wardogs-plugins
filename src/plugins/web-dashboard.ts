@@ -94,7 +94,7 @@ export function statusHeader(view: View): string {
   const up = view.serverUp();
   const status = snap?.status;
   const line = status
-    ? `${esc(status.map)} · ${esc(status.experiences.join(' + ') || '-')} · ${esc(status.lighting)} · ${status.players.current}/${status.players.max} players · ${Math.floor(status.matchSeconds / 60)} min into match · score tick ${status.scoreTick.current}s`
+    ? `${esc(status.map)} · ${esc(status.experiences.join(' + ') || '-')} · ${esc(status.lighting)} · ${status.players.current}/${status.players.max} players${typeof status.matchSeconds === 'number' ? ` · ${Math.floor(status.matchSeconds / 60)} min into match` : ''} · score tick ${status.scoreTick.current}s`
     : 'no data yet';
   const factions = status
     ? status.factionScores.map((f) => `${esc(f.name)} <b>${scoreOf(f) ?? ''}</b>`).join(' · ')

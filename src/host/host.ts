@@ -28,6 +28,15 @@ interface SavedSessions {
 /** A saved roster older than this no longer says anything about who is on now. */
 const SESSION_RESTORE_WINDOW_MS = 15 * 60_000;
 
+/** Sum of every numeric score field across factions (the score key varies by build). */
+function totalScore(factions: Array<Record<string, unknown>>): number {
+  let total = 0;
+  for (const f of factions)
+    for (const [key, value] of Object.entries(f))
+      if (key !== 'colorHex' && typeof value === 'number') total += value;
+  return total;
+}
+
 /** Everything one running plugin has registered, so it can be switched off cleanly. */
 interface ActivePlugin {
   plugin: AnyPlugin;
@@ -62,6 +71,9 @@ export class PluginHost {
   private joinedAt = new Map<string, number | null>();
   private firstSeenAt = new Map<string, number>();
   private lastSeen = new Map<string, Player>();
+  /** Players who vanished during a reconnect window; a leave fires only if they do not come back. */
+  private pendingLeaves = new Map<string, { player: Player; vanishedAt: number }>();
+  private graceUntil = 0;
   /** Who was on at the last good poll, kept on disk so a restart or short outage loses nobody's session. */
   private sessions: SavedSessions | null = null;
   private sessionsFile: string;
@@ -488,6 +500,21 @@ export class PluginHost {
           this.lastSeen.set(p.steamId, p);
         }
       }
+      // A map change (WARDOGS drops everyone and they reconnect) or a mass drop opens a reconnect window:
+      // leaves are held and a player who returns inside it keeps their session, with no join event.
+      if (this.previous && now >= this.graceUntil) {
+        const before = this.previous.players.length;
+        const after = snap.players.length;
+        const mapChanged = this.previous.status.map !== snap.status.map;
+        const massDrop = before >= 8 && before - after >= Math.ceil(before * 0.25);
+        if (mapChanged || massDrop) {
+          const grace = this.config.reconnectGraceMs ?? 120_000;
+          this.graceUntil = now + grace;
+          this.logger.info(
+            `${mapChanged ? `map change to ${snap.status.map}` : `${before - after} of ${before} players dropped`}: holding leave/join events for ${Math.round(grace / 1000)} s while players reconnect`,
+          );
+        }
+      }
       if (this.previous) await this.diff(this.previous, snap);
       await this.emit('tick', { snapshot: snap, previous: this.previous });
       this.previous = snap;
@@ -506,7 +533,19 @@ export class PluginHost {
   private async diff(old: Snapshot, next: Snapshot): Promise<void> {
     const a = old.status,
       b = next.status;
-    if (b.matchSeconds < a.matchSeconds) await this.emit('match.new', { snapshot: next, previous: old });
+    // A new match: the timer reset (builds that report one), the map changed (a map change is a level
+    // load), the rotation pointer moved, or every faction score went back to zero from non-zero.
+    const timerReset =
+      typeof a.matchSeconds === 'number' &&
+      typeof b.matchSeconds === 'number' &&
+      b.matchSeconds < a.matchSeconds;
+    const rotationMoved =
+      a.rotation?.nowIndex !== undefined &&
+      b.rotation?.nowIndex !== undefined &&
+      a.rotation.nowIndex !== b.rotation.nowIndex;
+    const scoresReset = totalScore(a.factionScores) > 0 && totalScore(b.factionScores) === 0;
+    if (timerReset || a.map !== b.map || rotationMoved || scoresReset)
+      await this.emit('match.new', { snapshot: next, previous: old });
     if (
       a.map !== b.map ||
       a.alternator !== b.alternator ||
@@ -518,23 +557,33 @@ export class PluginHost {
     if (JSON.stringify(a.factionScores) !== JSON.stringify(b.factionScores))
       await this.emit('score.changed', { from: a.factionScores, to: b.factionScores, snapshot: next });
     const current = new Set(next.players.map((p) => p.steamId));
+    const inGrace = next.at < this.graceUntil;
     for (const [id, p] of this.lastSeen)
       if (!current.has(id)) {
+        if (inGrace) {
+          if (!this.pendingLeaves.has(id)) this.pendingLeaves.set(id, { player: p, vanishedAt: next.at });
+          continue;
+        }
+        // Gone for real (or the window closed without them): the session ended when they vanished.
+        const endAt = this.pendingLeaves.get(id)?.vanishedAt ?? next.at;
         const start = this.joinedAt.get(id);
         await this.emit('player.leave', {
           player: p,
           snapshot: next,
-          sessionSeconds:
-            start === null || start === undefined ? null : Math.max(0, (next.at - start) / 1000),
-          observedSeconds: Math.max(0, (next.at - (this.firstSeenAt.get(id) ?? next.at)) / 1000),
+          sessionSeconds: start === null || start === undefined ? null : Math.max(0, (endAt - start) / 1000),
+          observedSeconds: Math.max(0, (endAt - (this.firstSeenAt.get(id) ?? endAt)) / 1000),
         });
+        this.pendingLeaves.delete(id);
         this.lastSeen.delete(id);
         this.joinedAt.delete(id);
         this.firstSeenAt.delete(id);
       }
     const prior = new Set(old.players.map((p) => p.steamId));
     for (const p of next.players)
-      if (!prior.has(p.steamId)) await this.emit('player.join', { player: p, snapshot: next });
+      if (!prior.has(p.steamId)) {
+        if (this.pendingLeaves.delete(p.steamId)) continue; // reconnected inside the window: same session
+        await this.emit('player.join', { player: p, snapshot: next });
+      }
   }
 
   /** Start the audit poll loop once something subscribes to audit.entry. */

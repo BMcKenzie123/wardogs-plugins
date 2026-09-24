@@ -121,9 +121,11 @@ function scoreOf(row: FactionScore): string {
 
 function statusLine(s: Status): string {
   const factions = s.factionScores.map((f) => `${f.name} ${scoreOf(f)}`.trim()).join(' · ');
-  const min = Math.floor(s.matchSeconds / 60);
-  const sec = String(Math.floor(s.matchSeconds % 60)).padStart(2, '0');
-  return `${s.map} [${s.experiences.join('+') || '-'}] ${s.lighting} | ${s.players.current}/${s.players.max} players | ${factions || 'no factions'} | ${min}:${sec}`;
+  const clock =
+    typeof s.matchSeconds === 'number'
+      ? `${Math.floor(s.matchSeconds / 60)}:${String(Math.floor(s.matchSeconds % 60)).padStart(2, '0')}`
+      : 'no match clock';
+  return `${s.map} [${s.experiences.join('+') || '-'}] ${s.lighting} | ${s.players.current}/${s.players.max} players | ${factions || 'no factions'} | ${clock}`;
 }
 
 function selection(map: string, flags: Args['flags']): MapSelection {
@@ -168,7 +170,7 @@ async function run(
         return [
           `${s.serverName}`,
           statusLine(s),
-          `scoreTick ${s.scoreTick.current} (${s.scoreTick.min}-${s.scoreTick.max}) · scoreCap ${s.scoreCap} · alternator ${s.alternator || '-'} · rotation ${rot}`,
+          `scoreTick ${s.scoreTick.current} (${s.scoreTick.min}-${s.scoreTick.max}) · scoreCap ${s.scoreCap ?? '-'} · alternator ${s.alternator || '-'} · rotation ${rot}`,
         ].join('\n');
       });
       return;

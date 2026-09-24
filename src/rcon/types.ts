@@ -34,8 +34,9 @@ export interface Status {
   lighting: string;
   alternator: string;
   scoreTick: { current: number; min: number; max: number };
-  scoreCap: number;
-  matchSeconds: number;
+  /** Documented, but some builds (xREALM, 2026-09) omit both. */
+  scoreCap?: number;
+  matchSeconds?: number;
   players: { current: number; max: number };
   factionScores: FactionScore[];
   rotation: { nowIndex: number | null; nextIndex: number | null } | null;

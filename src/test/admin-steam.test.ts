@@ -28,7 +28,7 @@ test('admin-panel: shows Steam names and avatars for players, bans and reserved 
   const { host } = makeHost(
     s,
     [adminPanel],
-    { 'admin-panel': { path: '/admin', steamBaseUrl: steam.baseUrl } },
+    { 'admin-panel': { path: '/admin', steamBaseUrl: steam.baseUrl, steamTimeoutMs: 10000 } },
     { httpPort: port, adminPassword: 'hunter2hunter2', steamApiKey: 'test-key' },
   );
   try {

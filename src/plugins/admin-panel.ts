@@ -39,6 +39,8 @@ interface Options {
   logLines: number;
   /** Override the Steam Web API base URL (tests). Empty = the real API. */
   steamBaseUrl: string;
+  /** How long a page waits for Steam before showing cached names only. */
+  steamTimeoutMs: number;
   /** This server's short name in the switcher and the tab title (e.g. "NA"). */
   label: string;
   /** Other servers' panels to link to, e.g. [{ "name": "EU", "url": "/eu/admin" }]. */
@@ -146,6 +148,7 @@ export default definePlugin<Options>({
     auditRows: 15,
     logLines: 40,
     steamBaseUrl: '',
+    steamTimeoutMs: 2500,
     label: '',
     otherPanels: [],
     appealNote: 'Appeal at {discord}',
@@ -194,7 +197,7 @@ export default definePlugin<Options>({
       if (!steam || !unique.length) return new Map();
       let timer: NodeJS.Timeout | undefined;
       const slow = new Promise<null>((resolve) => {
-        timer = setTimeout(() => resolve(null), 2500);
+        timer = setTimeout(() => resolve(null), Math.max(100, Number(ctx.options.steamTimeoutMs) || 2500));
       });
       try {
         const fresh = await Promise.race([steam.summaries(unique), slow]);

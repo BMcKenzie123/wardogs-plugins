@@ -182,7 +182,7 @@ export default definePlugin<Options>({
         if (!snapshot || snapshot.status.players.current < 1) return;
         post(
           `Scoreboard — ${snapshot.status.map}`,
-          `${scoreboard(snapshot)}\n${playerCount(snapshot)} players · ${mmss(snapshot.status.matchSeconds)} in`,
+          `${scoreboard(snapshot)}\n${playerCount(snapshot)} players · ${mmss(snapshot.status.matchSeconds ?? null)} in`,
           COLORS.blue,
         );
       });

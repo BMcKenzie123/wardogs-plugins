@@ -21,6 +21,14 @@ versions follow semver. Dates are the day the change reached the live TAW WARDOG
 - **One invite everywhere.** `DISCORD_INVITE` fills `{discord}` in every message template and in the appeal note, so
   moving to the WARDOGS Discord is one setting per instance. docs/DISCORD.md: the case made to TAW, the build sheet,
   and where each proposal item stands; dev plan v2.2 is now the Discord layer (feeds, then a role-aware bot).
+- **Reconnect grace window.** A map change in WARDOGS is a level load: everyone drops and reconnects.
+  The host now holds leave/join events for `RECONNECT_GRACE_MS` (default 120 s) after a map change or a
+  mass drop (a quarter of the roster in one poll); players who return keep their session, get no second
+  welcome DM and no extra visit. A player who does not return leaves with the session ending when they
+  vanished. Seen live on 2026-09-24: 100 players, 99 "leaves" and 100 welcome DMs on one rotation.
+- **New match without a match clock.** The xREALM build omits `matchSeconds` (and `scoreCap`), so match-end
+  features never fired. `match.new` now also fires on a map change, a rotation pointer move, or every faction
+  score returning to zero. Everything that displayed the clock copes with its absence; stale-match says so once.
 - motd: the cadence survives restarts and saves (next line due relative to the last send); every send is logged.
 - Copy: in-game lines say "TAW WARDOGS NA" instead of expanding `{server}` to the full browser title.
 
