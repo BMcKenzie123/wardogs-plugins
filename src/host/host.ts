@@ -247,7 +247,9 @@ export class PluginHost {
       try {
         this.caps = await this.rcon.capabilities();
         this.capsKnown = true;
-        this.logger.info(`capabilities: ${this.caps.routes.length} routes`);
+        this.logger.info(
+          `capabilities: ${this.caps.routes.length} routes, build ${String((this.caps as { build?: unknown }).build ?? 'unknown')}`,
+        );
         return true;
       } catch (e) {
         this.logger.warn(`capabilities unavailable (attempt ${i + 1}/${attempts})`, e);
@@ -525,6 +527,11 @@ export class PluginHost {
           );
         }
       }
+      // Inside a window, one line per poll: the reconnect curve, for reporting a bad rotation to the host.
+      if (this.graceRoster && now < this.graceUntil)
+        this.logger.info(
+          `reconnect window: ${snap.players.length} on (${this.pendingLeaves.size} missing) · map ${snap.status.map}`,
+        );
       if (this.previous) await this.diff(this.previous, snap);
       await this.emit('tick', { snapshot: snap, previous: this.previous });
       this.previous = snap;
