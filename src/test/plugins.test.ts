@@ -7,14 +7,14 @@ import { PluginHost } from '../host/host.ts';
 import { createLogger } from '../host/logger.ts';
 import { fill } from '../host/template.ts';
 import { RconClient } from '../rcon/client.ts';
-import type { Plugin } from '../host/plugin.ts';
+import type { AnyPlugin } from '../host/plugin.ts';
 import welcome from '../plugins/welcome.ts';
 import pingGuard from '../plugins/ping-guard.ts';
 import teamBalance from '../plugins/team-balance.ts';
 import { scoreboard } from '../plugins/discord-relay.ts';
 import { player, sleep, startMockServer, TOKEN, waitFor, type MockServer } from './mock-server.ts';
 
-function makeHost(s: MockServer, plugin: Plugin, options: Record<string, unknown>) {
+function makeHost(s: MockServer, plugin: AnyPlugin, options: Record<string, unknown>) {
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'wdp-'));
   return new PluginHost({
     rcon: new RconClient({
@@ -34,7 +34,7 @@ function makeHost(s: MockServer, plugin: Plugin, options: Record<string, unknown
       outbox: { dmPerMinute: 1_000_000, broadcastPerMinute: 1_000_000, dmGapPerPlayerMs: 0 },
     },
     plugins: { [plugin.name]: { enabled: true, ...options } },
-    registry: { [plugin.name]: plugin as Plugin },
+    registry: { [plugin.name]: plugin },
     logger: createLogger('error'),
   });
 }
